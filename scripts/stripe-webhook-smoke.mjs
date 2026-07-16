@@ -17,6 +17,7 @@ const env = Object.fromEntries(
 );
 
 const baseUrl = (process.argv[2] ?? "https://www.worksapp.co").replace(/\/$/, "");
+const matrixMode = process.argv.includes("--matrix");
 
 async function postSigned(name, path, secretName, event) {
   const secret = env[secretName];
@@ -104,3 +105,29 @@ await postSigned("subscriptions", "/api/webhooks/stripe-subscriptions", "STRIPE_
     },
   },
 });
+
+if (matrixMode) {
+  const routes = [
+    ["billing", "/api/billing/webhook"],
+    ["snapshot", "/api/webhooks/stripe-connect-snapshot"],
+    ["thin", "/api/webhooks/stripe-connect-thin"],
+    ["subscriptions", "/api/webhooks/stripe-subscriptions"],
+  ];
+  const secrets = [
+    "STRIPE_WEBHOOK_SECRET",
+    "STRIPE_CONNECT_SNAPSHOT_SECRET",
+    "STRIPE_CONNECT_THIN_SECRET",
+    "STRIPE_SUBSCRIPTIONS_WEBHOOK_SECRET",
+  ];
+
+  for (const [routeName, path] of routes) {
+    for (const secretName of secrets) {
+      await postSigned(`matrix ${routeName} with ${secretName}`, path, secretName, {
+        id: `evt_matrix_${routeName}_${secretName}_${Date.now()}`,
+        object: "event",
+        type: "price.created",
+        data: { object: { id: "price_smoke_noop", object: "price" } },
+      });
+    }
+  }
+}
