@@ -34,7 +34,7 @@ export async function POST(
 
     // Return existing token if already generated
     if (invoice.share_token) {
-      const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://worksup.vercel.app").replace(/\/$/, "");
+      const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://www.worksapp.co").replace(/\/$/, "");
       return NextResponse.json({ share_url: `${appUrl}/invoice/${invoice.share_token}` });
     }
 
@@ -47,7 +47,7 @@ export async function POST(
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://worksup.vercel.app").replace(/\/$/, "");
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://www.worksapp.co").replace(/\/$/, "");
     return NextResponse.json({ share_url: `${appUrl}/invoice/${token}` });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Failed to generate share link";

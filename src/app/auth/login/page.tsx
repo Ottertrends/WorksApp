@@ -8,7 +8,7 @@ export default function LoginPage() {
     <div className="min-h-[calc(100vh-64px)] flex items-center justify-center px-4 py-10">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Sign in to WorkSupp</CardTitle>
+          <CardTitle>Sign in to WorksApp</CardTitle>
         </CardHeader>
         <CardContent>
           <LoginForm />

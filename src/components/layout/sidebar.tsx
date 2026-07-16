@@ -102,7 +102,7 @@ export function Sidebar({ userName, userEmail, subscriptionPlan }: Props) {
       <div className="flex flex-col h-full overflow-y-auto p-3">
         {/* Logo + brand */}
         <div className={`flex items-center gap-2 mb-5 px-1 ${collapsed ? "justify-center" : ""}`}>
-          <Image src="/logo.png" alt="WorkSupp" width={36} height={36} className="object-contain flex-shrink-0" />
+          <Image src="/logo.png" alt="WorksApp" width={36} height={36} className="object-contain flex-shrink-0" />
           {!collapsed && (
             <span className="text-base font-semibold text-primary dark:text-white truncate">{t.nav.brand}</span>
           )}

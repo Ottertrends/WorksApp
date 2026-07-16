@@ -5,7 +5,7 @@ export function evolutionInstanceName(userId: string): string {
   return `user_${userId}`;
 }
 
-/** Second WhatsApp line for the same ContractorOS user (Evolution instance name). */
+/** Second WhatsApp line for the same WorksApp user (Evolution instance name). */
 export function evolutionSecondaryInstanceName(userId: string): string {
   return `user_${userId}_2`;
 }

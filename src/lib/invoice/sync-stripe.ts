@@ -9,7 +9,7 @@ export interface SyncStripeResult {
 }
 
 /**
- * Creates or re-syncs a Stripe Invoice (as a DRAFT) for an existing WorkSupp invoice.
+ * Creates or re-syncs a Stripe Invoice (as a DRAFT) for an existing WorksApp invoice.
  * NOTE: Stripe draft invoices do NOT have a hosted_invoice_url until finalized.
  * Call finalizeAndSendStripeInvoice() when the user clicks "Send Via Stripe".
  */
@@ -117,7 +117,7 @@ export async function syncToStripe(
           email: clientEmail,
           name: clientName ?? undefined,
           address: stripeAddress,
-          metadata: { worksupp_user_id: userId },
+          metadata: { worksapp_user_id: userId },
         },
         stripeOptions,
       );
@@ -129,7 +129,7 @@ export async function syncToStripe(
       {
         name: clientName ?? "Client",
         address: stripeAddress,
-        metadata: { worksupp_user_id: userId },
+        metadata: { worksapp_user_id: userId },
       },
       stripeOptions,
     );
@@ -149,7 +149,7 @@ export async function syncToStripe(
   // 8. Create Stripe Invoice as DRAFT first (so we can attach items directly to it)
   // Always use a timestamped idempotency key — avoids Stripe rejecting the same key
   // when parameters change between saves (e.g. customer added after first sync).
-  const idempotencyKey = `worksupp_sync_${invoiceId}_v${Date.now()}`;
+  const idempotencyKey = `worksapp_sync_${invoiceId}_v${Date.now()}`;
 
   const stripeInvoice = await stripe.invoices.create(
     {
@@ -161,7 +161,7 @@ export async function syncToStripe(
       payment_settings: {
         payment_method_types: ["card", "us_bank_account"],
       },
-      metadata: { worksupp_invoice_id: invoiceId, worksupp_user_id: userId },
+      metadata: { worksapp_invoice_id: invoiceId, worksapp_user_id: userId },
       description: `Invoice ${(invoice as Record<string, unknown>).invoice_number ?? invoiceId}`,
     },
     { ...stripeOptions, idempotencyKey },
@@ -216,7 +216,7 @@ export async function syncToStripe(
         quantity: Math.max(1, Math.round(parseFloat(item.quantity) || 1)),
         description: item.description || item.name || "Service",
         ...(taxRateIds.length > 0 ? { tax_rates: taxRateIds } : {}),
-        metadata: { worksupp_invoice_item_id: item.id },
+        metadata: { worksapp_invoice_item_id: item.id },
       },
       stripeOptions,
     );
@@ -386,7 +386,7 @@ export async function finalizeAndSendStripeInvoice(
 }
 
 /**
- * Voids a Stripe Invoice when a WorkSupp invoice is cancelled.
+ * Voids a Stripe Invoice when a WorksApp invoice is cancelled.
  * Silently ignores errors (already voided/paid/deleted).
  */
 export async function voidStripeInvoice(invoiceId: string, userId: string): Promise<void> {

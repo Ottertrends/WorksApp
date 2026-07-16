@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
         return `• ${name} (${type})${timePart}${notesPart}`;
       });
 
-      const message = `WorkSupp reminder 📋\n\nTomorrow's scheduled jobs (${tomorrowStr}):\n${projectLines.join("\n")}\n\nSent by WorkSupp`;
+      const message = `WorksApp reminder 📋\n\nTomorrow's scheduled jobs (${tomorrowStr}):\n${projectLines.join("\n")}\n\nSent by WorksApp`;
 
       // Try WhatsApp first
       let sent = false;
@@ -109,7 +109,7 @@ export async function GET(req: NextRequest) {
         const resendKey = process.env.RESEND_API_KEY?.trim();
         if (resendKey) {
           try {
-            const fromEmail = process.env.RESEND_FROM_EMAIL?.trim() ?? "notifications@worksup.app";
+            const fromEmail = process.env.RESEND_FROM_EMAIL?.trim() ?? "notifications@worksapp.co";
             await fetch("https://api.resend.com/emails", {
               method: "POST",
               headers: {

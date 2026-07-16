@@ -5,13 +5,13 @@ import Link from "next/link";
 
 const steps = [
   {
-    title: "Welcome to WorkSupp!",
+    title: "Welcome to WorksApp!",
     subtitle: "Your AI-powered contractor assistant",
     content: (
       <div className="flex flex-col items-center gap-4 text-center">
         <div className="text-6xl">👷</div>
         <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed max-w-xs">
-          WorkSupp helps you manage projects, draft invoices, save prices, and more — all through WhatsApp.
+          WorksApp helps you manage projects, draft invoices, save prices, and more — all through WhatsApp.
           It takes about 2 minutes to set up.
         </p>
       </div>
@@ -79,7 +79,7 @@ const steps = [
     content: (
       <div className="flex flex-col gap-3">
         <p className="text-sm text-slate-600 dark:text-slate-400">
-          Your WorkSupp assistant can help you with:
+          Your WorksApp assistant can help you with:
         </p>
         <ul className="grid grid-cols-2 gap-2">
           {[

@@ -1,6 +1,6 @@
-# ContractorOS (Phase 1 + 2)
+# WorksApp
 
-Next.js App Router + Supabase (auth + RLS) + Tailwind/shadcn-style UI. **Phase 2** adds Evolution API (WhatsApp), Claude agent, webhooks, and realtime dashboard updates.
+Next.js App Router + Supabase (auth + RLS) + Tailwind/shadcn-style UI. Includes Evolution API (WhatsApp), Claude agent, webhooks, and realtime dashboard updates.
 
 ## Environment variables
 

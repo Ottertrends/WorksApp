@@ -4,7 +4,7 @@ import { voidStripeInvoice } from "@/lib/invoice/sync-stripe";
 
 /**
  * POST /api/invoices/[id]/cancel-stripe
- * Voids the associated Stripe invoice when a WorkSupp invoice is cancelled.
+ * Voids the associated Stripe invoice when a WorksApp invoice is cancelled.
  * Silently succeeds if there is no Stripe invoice or it's already voided/paid.
  */
 export async function POST(

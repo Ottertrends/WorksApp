@@ -43,7 +43,7 @@ export async function executeTool(
         if ((projectCount ?? 0) >= limit) {
           return jsonResult({
             error:
-              `Free plan is limited to ${limit} projects. Upgrade to Premium at worksup.vercel.app/dashboard/billing to add unlimited projects.`,
+              `Free plan is limited to ${limit} projects. Upgrade to Premium at www.worksapp.co/dashboard/billing to add unlimited projects.`,
           });
         }
       }
@@ -582,7 +582,7 @@ export async function executeTool(
           const monthSearches = (usageRows ?? []).reduce((a, r) => a + (r.tavily_searches ?? 0), 0);
           if (monthSearches >= searchLimit) {
             return jsonResult({
-              error: `You've used your ${searchLimit} free web searches for this month. Upgrade to Premium at worksup.vercel.app/dashboard/billing for unlimited searches.`,
+              error: `You've used your ${searchLimit} free web searches for this month. Upgrade to Premium at www.worksapp.co/dashboard/billing for unlimited searches.`,
             });
           }
         }
@@ -1307,7 +1307,7 @@ Return ONLY valid JSON, no markdown:
           .eq("id", proposalId);
       }
 
-      const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://worksup.vercel.app").replace(/\/$/, "");
+      const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://www.worksapp.co").replace(/\/$/, "");
       return jsonResult({ ok: true, share_url: `${appUrl}/proposal/${token}` });
     }
 
@@ -1341,7 +1341,7 @@ Return ONLY valid JSON, no markdown:
           .eq("id", invoiceId);
       }
 
-      const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://worksup.vercel.app").replace(/\/$/, "");
+      const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://www.worksapp.co").replace(/\/$/, "");
       return jsonResult({ ok: true, share_url: `${appUrl}/invoice/${token}` });
     }
 

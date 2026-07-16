@@ -51,7 +51,7 @@ export async function POST(
     // Void Stripe invoice silently (handles errors internally)
     await voidStripeInvoice(id, user.id);
 
-    // Mark invoice as void in WorkSupp, clear Stripe fields
+    // Mark invoice as void in WorksApp, clear Stripe fields
     await supabase
       .from("invoices")
       .update({

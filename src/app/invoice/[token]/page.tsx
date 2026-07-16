@@ -99,7 +99,7 @@ export default async function SharedInvoicePage({ params }: Props) {
               null
             )}
             <div>
-              <p className="font-semibold text-slate-900 text-sm">{profile?.company_name ?? profile?.full_name ?? "WorkSupp"}</p>
+              <p className="font-semibold text-slate-900 text-sm">{profile?.company_name ?? profile?.full_name ?? "WorksApp"}</p>
               {profile?.email && <p className="text-xs text-slate-500">{profile.email}</p>}
               {profile?.phone && <p className="text-xs text-slate-500">{profile.phone}</p>}
             </div>
@@ -222,7 +222,7 @@ export default async function SharedInvoicePage({ params }: Props) {
 
         {/* Footer */}
         <div className="px-8 py-4 bg-slate-50 border-t border-slate-100 text-center">
-          <p className="text-xs text-slate-400">Powered by WorkSupp</p>
+          <p className="text-xs text-slate-400">Powered by WorksApp</p>
         </div>
       </div>
     </div>

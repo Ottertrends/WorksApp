@@ -38,7 +38,7 @@ export async function POST(
     // Send invoice via Stripe — returns the hosted_invoice_url
     const hostedUrl = await sendOpenStripeInvoice(id, user.id);
 
-    // Update invoice status to "sent" in WorkSupp
+    // Update invoice status to "sent" in WorksApp
     await supabase
       .from("invoices")
       .update({ status: "sent", updated_at: new Date().toISOString() })

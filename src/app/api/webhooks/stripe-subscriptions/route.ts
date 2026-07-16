@@ -201,7 +201,7 @@ export async function POST(req: NextRequest) {
         // Only process subscription renewals (subscription field is set)
         if (!stripeSubId) break;
 
-        // Find the WorkSupp client_subscription record
+        // Find the WorksApp client_subscription record
         const { data: subRow } = await supabase
           .from("client_subscriptions")
           .select("id, user_id, project_id, service_plan_id, updated_at")
@@ -245,7 +245,7 @@ export async function POST(req: NextRequest) {
         // Auto-generate invoice numbers using timestamp
         const invoiceNum = `SUB-${Date.now()}`;
 
-        // Create WorkSupp invoice record (status: paid)
+        // Create WorksApp invoice record (status: paid)
         const { data: newInvoice, error: invErr } = await supabase
           .from("invoices")
           .insert({

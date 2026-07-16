@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "WorkSupp",
+  title: "WorksApp",
   description: "AI-powered project management for small contractors.",
 };
 

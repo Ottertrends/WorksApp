@@ -31,10 +31,13 @@ export async function POST(req: NextRequest) {
   }
 
   if (event.type === "invoice.paid") {
-    const stripeInvoice = event.data.object as { id: string; metadata?: { worksupp_invoice_id?: string } };
-    const worksuppInvoiceId = stripeInvoice.metadata?.worksupp_invoice_id;
+    const stripeInvoice = event.data.object as {
+      id: string;
+      metadata?: { worksapp_invoice_id?: string; worksupp_invoice_id?: string };
+    };
+    const worksAppInvoiceId = stripeInvoice.metadata?.worksapp_invoice_id ?? stripeInvoice.metadata?.worksupp_invoice_id;
 
-    if (worksuppInvoiceId) {
+    if (worksAppInvoiceId) {
       const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -44,12 +47,12 @@ export async function POST(req: NextRequest) {
       const { error } = await supabase
         .from("invoices")
         .update({ status: "paid", updated_at: new Date().toISOString() })
-        .eq("id", worksuppInvoiceId);
+        .eq("id", worksAppInvoiceId);
 
       if (error) {
         console.error("[snapshot-webhook] Failed to update invoice status:", error);
       } else {
-        console.log(`[snapshot-webhook] Invoice ${worksuppInvoiceId} marked as paid`);
+        console.log(`[snapshot-webhook] Invoice ${worksAppInvoiceId} marked as paid`);
       }
     }
   }

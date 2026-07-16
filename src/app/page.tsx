@@ -80,8 +80,8 @@ export default function LandingPage() {
       <header className="shrink-0 sticky top-0 z-20 bg-white/90 dark:bg-slate-900/90 backdrop-blur border-b border-slate-200 dark:border-slate-800">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 shrink-0">
-            <Image src="/logo.png" alt="WorkSupp" width={36} height={36} className="object-contain sm:w-10 sm:h-10" />
-            <span className="text-base sm:text-lg font-bold text-primary dark:text-white tracking-tight">WorkSupp</span>
+            <Image src="/logo.png" alt="WorksApp" width={36} height={36} className="object-contain sm:w-10 sm:h-10" />
+            <span className="text-base sm:text-lg font-bold text-primary dark:text-white tracking-tight">WorksApp</span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <a
@@ -110,7 +110,7 @@ export default function LandingPage() {
       <Dialog open={loginOpen} onOpenChange={setLoginOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Sign in to WorkSupp</DialogTitle>
+            <DialogTitle>Sign in to WorksApp</DialogTitle>
           </DialogHeader>
           <LoginForm />
         </DialogContent>
@@ -205,7 +205,7 @@ export default function LandingPage() {
               Everything you need, nothing you don&apos;t
             </h2>
             <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 mt-2 max-w-xl mx-auto">
-              WorkSupp replaces the clipboard, the spreadsheet, and the guesswork.
+              WorksApp replaces the clipboard, the spreadsheet, and the guesswork.
             </p>
           </div>
 
@@ -249,7 +249,7 @@ export default function LandingPage() {
               Stop losing jobs to disorganization.
             </h2>
             <p className="text-sm sm:text-base text-slate-300 mt-3 mb-7 max-w-lg mx-auto leading-relaxed">
-              WorkSupp handles the paperwork so you can focus on the work. Start free today.
+              WorksApp handles the paperwork so you can focus on the work. Start free today.
             </p>
             <a
               href="/auth/signup"

@@ -160,7 +160,7 @@ export function IntegrationsSettings({ profile }: { profile: Profile }) {
           <div className="text-sm font-medium">Stripe Connect (client payments)</div>
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Clients pay you on your own Stripe account (cards; optional ACH on invoices that enable it).
-            This is separate from your ContractorOS subscription billing.
+            This is separate from your WorksApp subscription billing.
           </p>
 
           {stripeAccountId ? (

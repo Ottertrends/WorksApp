@@ -3,7 +3,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { userIdFromInstanceName } from "@/lib/whatsapp/instance-name";
 
 /**
- * Resolve ContractorOS user from Evolution webhook instance name.
+ * Resolve WorksApp user from Evolution webhook instance name.
  * Tries `user_<uuid>` / `user_<uuid>_2` first, then profiles.whatsapp_instance_id / whatsapp_secondary_instance_id
  * for manually named Evolution instances.
  */

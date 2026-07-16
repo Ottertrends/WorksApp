@@ -33,9 +33,9 @@ export default function AdminLoginPage() {
     <div className="min-h-dvh bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
       <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-8">
         <div className="flex flex-col items-center gap-2 mb-6">
-          <Image src="/logo.png" alt="WorkSupp" width={48} height={48} className="object-contain" />
+          <Image src="/logo.png" alt="WorksApp" width={48} height={48} className="object-contain" />
           <h1 className="text-lg font-bold text-slate-900 dark:text-white">Admin Console</h1>
-          <p className="text-xs text-slate-500">WorkSupp Operations</p>
+          <p className="text-xs text-slate-500">WorksApp Operations</p>
         </div>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">

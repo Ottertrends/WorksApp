@@ -1,4 +1,4 @@
--- ContractorOS Phase 1 foundation
+-- WorksApp Phase 1 foundation
 -- Supabase schema + RLS policies + profile auto-creation trigger
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -281,4 +281,3 @@ CREATE TRIGGER on_auth_user_created
 AFTER INSERT ON auth.users
 FOR EACH ROW
 EXECUTE FUNCTION public.handle_new_user();
-

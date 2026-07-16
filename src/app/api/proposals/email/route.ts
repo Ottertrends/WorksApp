@@ -28,7 +28,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Proposal not found" }, { status: 404 });
 
     const resendKey = process.env.RESEND_API_KEY?.trim();
-    const fromEmail = process.env.RESEND_FROM_EMAIL?.trim() || "noreply@contractoros.com";
+    const fromEmail = process.env.RESEND_FROM_EMAIL?.trim() || "noreply@worksapp.co";
     if (!resendKey) {
       return NextResponse.json(
         { error: "Email service not configured (RESEND_API_KEY missing)" },

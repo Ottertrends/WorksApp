@@ -444,8 +444,8 @@ function LineBlock({
             Scan with WhatsApp → Linked devices. Status checks every 3 seconds.
           </p>
           <p className="text-xs text-slate-400 text-center max-w-xs">
-            WorkSupp may include Amazon affiliate links when recommending products.{" "}
-            <span className="font-medium">As an Amazon Associate, WorkSupp earns from qualifying purchases.</span>
+            WorksApp may include Amazon affiliate links when recommending products.{" "}
+            <span className="font-medium">As an Amazon Associate, WorksApp earns from qualifying purchases.</span>
           </p>
         </div>
       ) : !connected && connecting && !pairingMode ? (

@@ -4,7 +4,7 @@ import { markUncollectibleStripeInvoice } from "@/lib/invoice/sync-stripe";
 
 /**
  * POST /api/invoices/[id]/uncollectible
- * Marks an open invoice as uncollectible in both Stripe and WorkSupp.
+ * Marks an open invoice as uncollectible in both Stripe and WorksApp.
  * Stripe step is silently skipped if no Stripe invoice exists.
  * Returns { success: true }.
  */
@@ -39,7 +39,7 @@ export async function POST(
     // Mark uncollectible in Stripe (silently ignores if no Stripe invoice)
     await markUncollectibleStripeInvoice(id, user.id);
 
-    // Update WorkSupp status
+    // Update WorksApp status
     await supabase
       .from("invoices")
       .update({

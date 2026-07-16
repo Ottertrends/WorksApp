@@ -1,8 +1,8 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "Privacy Policy | Worksupp",
-  description: "Privacy Policy for Worksupp — how we collect, use, and protect your data.",
+  title: "Privacy Policy | WorksApp",
+  description: "Privacy Policy for WorksApp — how we collect, use, and protect your data.",
 };
 
 export default function PrivacyPolicyPage() {
@@ -13,18 +13,18 @@ export default function PrivacyPolicyPage() {
           href="/"
           className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-primary dark:text-slate-400 dark:hover:text-blue-300 mb-8 transition-colors"
         >
-          ← Back to Worksupp
+          ← Back to WorksApp
         </Link>
 
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white mb-2">
-          Privacy Policy for Worksupp
+          Privacy Policy for WorksApp
         </h1>
         <p className="text-sm text-slate-400 dark:text-slate-500 mb-8">Effective Date: April 6, 2026</p>
 
         <div className="text-sm text-slate-600 dark:text-slate-300 space-y-6 leading-relaxed">
           <p>
-            At Worksupp, accessible from https://worksupp.co, one of our main priorities is the privacy of our visitors.
-            This Privacy Policy document contains types of information that is collected and recorded by Worksupp and how we use it.
+            WorksApp is a service owned and operated by Acento Project LLC and accessible from https://www.worksapp.co.
+            This Privacy Policy describes the types of information that Acento Project LLC collects through WorksApp and how we use it.
           </p>
 
           <section>
@@ -53,7 +53,7 @@ export default function PrivacyPolicyPage() {
           <section>
             <h2 className="text-base font-semibold text-slate-800 dark:text-white mb-2">Google API Disclosure</h2>
             <p>
-              Worksupp&apos;s use and transfer to any other app of information received from Google APIs will adhere to the{" "}
+              Acento Project LLC&apos;s use and transfer to any other app of information received from Google APIs through WorksApp will adhere to the{" "}
               <a
                 href="https://developers.google.com/terms/api-services-user-data-policy"
                 target="_blank"
@@ -78,7 +78,7 @@ export default function PrivacyPolicyPage() {
           <section>
             <h2 className="text-base font-semibold text-slate-800 dark:text-white mb-2">Third-Party Privacy Policies</h2>
             <p>
-              Worksupp&apos;s Privacy Policy does not apply to other advertisers or websites. Thus, we are advising you
+              This Privacy Policy does not apply to other advertisers or websites. Thus, we are advising you
               to consult the respective Privacy Policies of these third-party servers for more detailed information.
             </p>
           </section>
@@ -98,8 +98,8 @@ export default function PrivacyPolicyPage() {
             </p>
             <p>
               Email:{" "}
-              <a href="mailto:support@worksupp.co" className="text-primary hover:underline">
-                support@worksupp.co
+              <a href="mailto:support@worksapp.co" className="text-primary hover:underline">
+                support@worksapp.co
               </a>
             </p>
           </section>
@@ -108,7 +108,7 @@ export default function PrivacyPolicyPage() {
 
       <footer className="shrink-0 py-5 text-center text-xs text-slate-400 dark:text-slate-600 border-t border-slate-200 dark:border-slate-800">
         <Link href="/" className="text-primary hover:underline">
-          Worksupp
+          WorksApp
         </Link>
         {" "}· Built for the trades
       </footer>

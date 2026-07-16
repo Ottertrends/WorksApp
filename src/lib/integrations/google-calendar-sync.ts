@@ -74,7 +74,7 @@ export async function syncRecurringRuleToGoogle(ruleId: string): Promise<{ ok: b
   const { calendar } = client;
   const calendarId = r.google_calendar_id || "primary";
   const projectName = (r.projects as { name?: string | null } | null)?.name ?? "Job";
-  const summary = `WorkSupp: ${projectName}`;
+  const summary = `WorksApp: ${projectName}`;
   const description = [r.notes].filter(Boolean).join("\n") || `Recurring ${r.recurrence_type} schedule`;
 
   const dayOfWeek = rule.day_of_week as number | null;

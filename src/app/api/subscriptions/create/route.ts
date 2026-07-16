@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
 
   const stripe = getStripe();
   const stripeOpts = { stripeAccount: connectedAccountId };
-  const origin = req.headers.get("origin") ?? "https://app.worksupp.com";
+  const origin = req.headers.get("origin") ?? "https://www.worksapp.co";
 
   const isFixedTax = tax_category === "other" && custom_tax_amount > 0;
   const isAutoTax = !!tax_category && tax_category !== "other";

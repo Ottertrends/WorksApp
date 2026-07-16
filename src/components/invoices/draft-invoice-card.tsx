@@ -795,7 +795,7 @@ export function DraftInvoiceCard({
               </div>
               <p className="text-sm text-slate-600 dark:text-slate-400">
                 Voiding permanently destroys this finalized invoice
-                {stripeConnected ? " in both WorkSupp and Stripe" : ""}. This action{" "}
+                {stripeConnected ? " in both WorksApp and Stripe" : ""}. This action{" "}
                 <strong>cannot be undone</strong>. A new blank draft will be
                 created for this project so you can start fresh.
               </p>

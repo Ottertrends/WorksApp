@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
   const rawAppUrl =
     process.env.NEXT_PUBLIC_APP_URL?.trim() ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "") ||
-    "https://worksup.vercel.app";
+    "https://www.worksapp.co";
   const appUrl = rawAppUrl.replace(/\/$/, "");
 
   if (!appUrl.startsWith("http")) {

@@ -29,7 +29,7 @@ export async function sendInvoiceViaGmail(opts: {
   oauth2.setCredentials({ refresh_token: refreshToken });
   const gmail = google.gmail({ version: "v1", auth: oauth2 });
 
-  const boundary = "boundary_worksupp_" + Math.random().toString(36).slice(2);
+  const boundary = "boundary_worksapp_" + Math.random().toString(36).slice(2);
   const pdfB64 = opts.pdfBuffer.toString("base64").replace(/(.{76})/g, "$1\r\n");
   const htmlB64 = Buffer.from(opts.htmlBody, "utf8").toString("base64").replace(/(.{76})/g, "$1\r\n");
 

@@ -49,8 +49,8 @@ export default function PricingPage() {
       <header className="shrink-0 sticky top-0 z-10 bg-white/90 dark:bg-slate-900/90 backdrop-blur border-b border-slate-200 dark:border-slate-800">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-3">
           <Link href="/" className="flex items-center gap-2 shrink-0">
-            <Image src="/logo.png" alt="WorkSupp" width={36} height={36} className="object-contain" />
-            <span className="text-base sm:text-lg font-bold text-primary dark:text-white tracking-tight">WorkSupp</span>
+            <Image src="/logo.png" alt="WorksApp" width={36} height={36} className="object-contain" />
+            <span className="text-base sm:text-lg font-bold text-primary dark:text-white tracking-tight">WorksApp</span>
           </Link>
           <div className="flex items-center gap-2 shrink-0">
             <Link
@@ -180,7 +180,7 @@ export default function PricingPage() {
       <div className="text-center pb-12 px-4">
         <p className="text-sm text-slate-400">
           Sales tax applied at checkout based on your location. Questions?{" "}
-          <a href="mailto:support@worksupp.app" className="text-primary hover:underline">Contact us</a>
+          <a href="mailto:support@worksapp.co" className="text-primary hover:underline">Contact us</a>
         </p>
       </div>
     </div>

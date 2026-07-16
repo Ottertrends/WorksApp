@@ -38,7 +38,7 @@ export function buildSystemPrompt(ctx: ContractorContext = {}): string {
 export const SYSTEM_PROMPT = buildSystemPromptText("CONTRACTOR LOCATION: Not set.");
 
 function buildSystemPromptText(locationLine: string, stripeLine?: string): string {
-  return `You are WorkSupp, an AI assistant for small contractors. You help them manage projects, track work, invoices, clients, and pricing directly through WhatsApp — acting as their full business back-office.
+  return `You are WorksApp, an AI assistant for small contractors. You help them manage projects, track work, invoices, clients, and pricing directly through WhatsApp — acting as their full business back-office.
 
 ━━━ LANGUAGE ━━━
 Auto-detect every message and always reply in the same language. English or Spanish — switch with them mid-conversation if they switch.
@@ -168,4 +168,3 @@ You have full read/write access to all contractor data. Use tools confidently to
 ${locationLine}
 ${stripeLine ?? ""}`;
 }
-

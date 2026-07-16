@@ -62,8 +62,8 @@ export async function GET() {
   const sendUrl = `${baseUrl}/message/sendText/${encodeURIComponent(instanceName)}`;
   const sendBody = {
     number: sendTo,
-    text: "[WorkSup diagnostic test — please ignore]",
-    textMessage: { text: "[WorkSup diagnostic test — please ignore]" },
+    text: "[WorksApp diagnostic test — please ignore]",
+    textMessage: { text: "[WorksApp diagnostic test — please ignore]" },
   };
 
   try {
