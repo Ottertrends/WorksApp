@@ -1,6 +1,6 @@
 # WorksApp
 
-Next.js App Router + Supabase (auth + RLS) + Tailwind/shadcn-style UI. Includes Evolution API (WhatsApp), Claude agent, webhooks, and realtime dashboard updates.
+Next.js App Router + Supabase (auth + RLS) + Tailwind/shadcn-style UI. Includes Evolution API (WhatsApp), ChatGPT agent, webhooks, and realtime dashboard updates.
 
 ## Environment variables
 
@@ -15,9 +15,10 @@ Create `.env.local` (never commit secrets) with:
 - `EVOLUTION_API_URL` — Evolution API base URL (e.g. `http://your-vps:8080`)
 - `EVOLUTION_API_KEY` — Evolution global API key
 - `NEXT_PUBLIC_APP_URL` — Public app URL for webhooks (Vercel URL or ngrok in dev)
-- `ANTHROPIC_API_KEY` — Claude API key
+- `OPENAI_API_KEY` — OpenAI API key for the ChatGPT agent
 - `EVOLUTION_WEBHOOK_SECRET` *(optional)* — if set, webhook requests must send matching `x-evolution-webhook-secret` or `x-webhook-secret`
-- `ANTHROPIC_MODEL` *(optional)* — overrides default (`claude-sonnet-4-6`) for the agent and diagnostics
+- `WHATSAPP_VERIFY_TOKEN` — Meta WhatsApp Cloud API webhook verification token. Use the same value in Meta's "Verify token" field.
+- `OPENAI_MODEL` *(optional)* — overrides default (`gpt-5-chat-latest`) for the agent and diagnostics
 
 Apply migration `supabase/migrations/002_enable_realtime.sql` in Supabase so `projects`, `invoices`, and `messages` publish to Realtime.
 
