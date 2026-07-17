@@ -1,112 +1,107 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
+import {
+  ArrowRight,
+  CalendarDays,
+  CheckCircle2,
+  ClipboardList,
+  CreditCard,
+  FileText,
+  FolderKanban,
+  MessageSquareText,
+  ShieldCheck,
+  Sparkles,
+  Users,
+} from "lucide-react";
+import { useState } from "react";
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { LoginForm } from "@/components/auth/login-form";
 
-// ── useInView hook ─────────────────────────────────────────────────────────────
-function useInView(threshold = 0.15) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setVisible(true); observer.disconnect(); } },
-      { threshold },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [threshold]);
-
-  return { ref, visible };
-}
-
-// ── Feature cards ─────────────────────────────────────────────────────────────
 const features = [
   {
-    icon: "💬",
-    title: "WhatsApp AI",
-    desc: "Text your job details and get invoices drafted, material prices looked up, and clients messaged — without opening an app.",
+    icon: MessageSquareText,
+    title: "WhatsApp AI assistant",
+    desc: "Send job details, pricing questions, or invoice requests from the truck and keep the work moving.",
   },
   {
-    icon: "🧾",
-    title: "Invoices + Payments",
-    desc: "Create, send, and collect payment via Stripe in seconds. Track paid, outstanding, and draft invoices in one view.",
+    icon: FileText,
+    title: "Invoices and proposals",
+    desc: "Draft professional invoices and quotes from project data, then share links without rebuilding the same paperwork.",
   },
   {
-    icon: "📋",
-    title: "Projects & Clients",
-    desc: "Every job, client, and status organized automatically. No spreadsheets, no paperwork.",
+    icon: FolderKanban,
+    title: "Projects and clients",
+    desc: "Track job status, client notes, locations, and work history in one place the agent can reference.",
   },
   {
-    icon: "📅",
-    title: "Calendar & Reminders",
-    desc: "Set recurring job schedules and get a WhatsApp reminder the day before every job — so nothing slips through.",
+    icon: CalendarDays,
+    title: "Schedules and reminders",
+    desc: "Keep recurring work visible and get WhatsApp reminders before upcoming jobs.",
   },
   {
-    icon: "📄",
-    title: "AI Proposals",
-    desc: "Generate a professional PDF quote from your project data in one click. Send a share link or download it.",
+    icon: CreditCard,
+    title: "Payment collection",
+    desc: "Send Stripe payment links, see what is outstanding, and close out jobs faster.",
   },
   {
-    icon: "👥",
-    title: "Team Access",
-    desc: "Add a team member on the Premium Team plan. Everyone stays in sync without extra apps or group chats.",
+    icon: Users,
+    title: "Team-ready workspace",
+    desc: "Invite a team member so office and field work stay connected without more group chats.",
   },
 ];
 
-// ── How it works ──────────────────────────────────────────────────────────────
-const steps = [
-  { num: "01", title: "Text your job", desc: "WhatsApp your AI assistant with job details, client info, or a question about material prices." },
-  { num: "02", title: "AI does the work", desc: "Invoices get drafted, proposals generated, and jobs logged — all from a single message." },
-  { num: "03", title: "Get paid faster", desc: "Send a Stripe payment link, share a proposal, or mark a job done. Everything tracked in one dashboard." },
+const workflow = [
+  "Text your AI assistant with a job update, client request, or pricing question.",
+  "WorksApp files the details under the right account, project, invoice, or client.",
+  "Send the next action: proposal, invoice, payment link, reminder, or follow-up.",
 ];
 
-// ── Component ─────────────────────────────────────────────────────────────────
+const outcomes = [
+  "One WhatsApp number linked to one account",
+  "Client and project context retained for the agent",
+  "Invoices, proposals, and payments in the same workspace",
+];
+
 export default function LandingPage() {
   const [loginOpen, setLoginOpen] = useState(false);
 
-  const featuresRef = useInView(0.1);
-  const stepsRef    = useInView(0.1);
-  const ctaRef      = useInView(0.15);
-
   return (
-    <div className="min-h-dvh bg-slate-50 dark:bg-slate-950 flex flex-col overflow-x-hidden">
+    <div className="min-h-dvh overflow-x-hidden bg-[#f6f8f3] text-slate-950 dark:bg-slate-950 dark:text-slate-50">
+      <header className="sticky top-0 z-30 border-b border-slate-900/10 bg-[#f6f8f3]/92 backdrop-blur dark:border-white/10 dark:bg-slate-950/90">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
+          <Link href="/" className="flex min-w-0 items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+            <Image src="/logo.png" alt="WorksApp" width={40} height={40} className="size-10 object-contain" priority />
+            <span className="text-lg font-bold tracking-tight">WorksApp</span>
+          </Link>
 
-      {/* ── Nav ────────────────────────────────────────────────────────────── */}
-      <header className="shrink-0 sticky top-0 z-20 bg-white/90 dark:bg-slate-900/90 backdrop-blur border-b border-slate-200 dark:border-slate-800">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 shrink-0">
-            <Image src="/logo.png" alt="WorksApp" width={36} height={36} className="object-contain sm:w-10 sm:h-10" />
-            <span className="text-base sm:text-lg font-bold text-primary dark:text-white tracking-tight">WorksApp</span>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <a
-              href="/pricing"
-              className="hidden sm:inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors"
-            >
-              Pricing
-            </a>
-            <a
-              href="/auth/signup"
-              className="inline-flex items-center justify-center rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-sm font-semibold text-white bg-primary hover:bg-primary/90 dark:bg-primary/20 dark:text-blue-300 dark:hover:bg-primary/30 dark:border dark:border-blue-400/30 transition-colors whitespace-nowrap"
-            >
-              Get Started Free
-            </a>
+          <nav aria-label="Primary navigation" className="hidden items-center gap-6 text-sm font-medium text-slate-600 dark:text-slate-300 md:flex">
+            <a href="#features" className="transition-colors hover:text-slate-950 dark:hover:text-white">Features</a>
+            <a href="#workflow" className="transition-colors hover:text-slate-950 dark:hover:text-white">Workflow</a>
+            <Link href="/pricing" className="transition-colors hover:text-slate-950 dark:hover:text-white">Pricing</Link>
+          </nav>
+
+          <div className="flex shrink-0 items-center gap-2">
             <button
+              type="button"
               onClick={() => setLoginOpen(true)}
-              className="inline-flex items-center justify-center rounded-lg bg-emerald-500 hover:bg-emerald-600 px-3 py-1.5 sm:px-4 sm:py-2 text-sm font-semibold text-white transition-colors whitespace-nowrap"
+              className="hidden h-11 items-center justify-center rounded-md px-4 text-sm font-semibold text-slate-700 transition-colors hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent dark:text-slate-200 dark:hover:bg-white/10 sm:inline-flex"
             >
-              Sign In
+              Sign in
             </button>
+            <Link
+              href="/auth/signup"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
+            >
+              Start free
+              <ArrowRight className="size-4" aria-hidden="true" />
+            </Link>
           </div>
         </div>
       </header>
 
-      {/* ── Login Modal ────────────────────────────────────────────────────── */}
       <Dialog open={loginOpen} onOpenChange={setLoginOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -116,205 +111,202 @@ export default function LandingPage() {
         </DialogContent>
       </Dialog>
 
-      <main className="flex-1 flex flex-col items-center w-full">
+      <main>
+        <section className="mx-auto grid max-w-6xl items-center gap-8 px-4 py-8 sm:px-6 sm:py-10 lg:min-h-[calc(100dvh-64px)] lg:grid-cols-[1.02fr_0.98fr] lg:gap-10 lg:py-14">
+          <div className="max-w-2xl">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-amber-700/20 bg-amber-100 px-3 py-1.5 text-sm font-semibold text-amber-900 dark:border-amber-300/20 dark:bg-amber-300/10 dark:text-amber-200">
+              <Sparkles className="size-4" aria-hidden="true" />
+              Built for contractors running jobs from the field
+            </div>
 
-        {/* ── Hero ───────────────────────────────────────────────────────── */}
-        <section className="relative w-full flex flex-col items-center text-center px-4 sm:px-6 pt-16 sm:pt-24 pb-16 sm:pb-20 overflow-hidden">
-
-          {/* Animated background blobs */}
-          <div
-            className="absolute -top-20 -left-20 w-72 h-72 sm:w-96 sm:h-96 rounded-full opacity-[0.07] dark:opacity-[0.05]"
-            style={{
-              background: "radial-gradient(circle, #1e293b 0%, transparent 70%)",
-              animation: "floatBlob 14s ease-in-out infinite",
-            }}
-          />
-          <div
-            className="absolute -bottom-10 -right-10 w-64 h-64 sm:w-80 sm:h-80 rounded-full opacity-[0.06] dark:opacity-[0.04]"
-            style={{
-              background: "radial-gradient(circle, #0d9488 0%, transparent 70%)",
-              animation: "floatBlob 18s ease-in-out infinite reverse",
-            }}
-          />
-
-          <div className="relative z-10 max-w-2xl flex flex-col items-center gap-4 sm:gap-6">
-            {/* Badge */}
-            <span
-              className="anim-fade-up inline-flex items-center gap-1.5 bg-primary/10 text-primary dark:bg-primary/20 dark:text-blue-300 text-xs sm:text-sm font-semibold px-3 py-1.5 rounded-full"
-              style={{ animationDelay: "0.05s" }}
-            >
-              ⚡ Built for the trades
-            </span>
-
-            {/* Headline */}
-            <h1
-              className="anim-fade-up text-4xl sm:text-6xl font-bold text-slate-900 dark:text-white leading-[1.08] tracking-tight"
-              style={{ animationDelay: "0.15s" }}
-            >
-              Run your contracting<br className="hidden sm:block" /> business{" "}
-              <span className="text-accent">on autopilot</span>
+            <h1 className="max-w-3xl text-4xl font-bold leading-[1.04] tracking-tight text-slate-950 dark:text-white sm:text-6xl lg:text-7xl">
+              Your contracting business, organized by text.
             </h1>
 
-            {/* Subtext */}
-            <p
-              className="anim-fade-up text-sm sm:text-lg text-slate-500 dark:text-slate-400 max-w-lg leading-relaxed"
-              style={{ animationDelay: "0.25s" }}
-            >
-              WhatsApp AI + invoices + scheduling — everything a contractor needs, from your phone.
+            <p className="mt-5 max-w-xl text-base leading-7 text-slate-600 dark:text-slate-300 sm:text-lg sm:leading-8">
+              WorksApp connects WhatsApp AI, projects, clients, invoices, proposals, schedules, and payments so your assistant always works from the right account context.
             </p>
 
-            {/* CTAs */}
-            <div
-              className="anim-fade-up flex flex-col sm:flex-row items-center gap-3"
-              style={{ animationDelay: "0.35s" }}
-            >
-              <a
+            <div className="mt-6 flex flex-col gap-3 sm:mt-8 sm:flex-row">
+              <Link
                 href="/auth/signup"
-                className="w-full sm:w-auto inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold text-white bg-primary hover:bg-primary/90 dark:bg-primary/20 dark:text-blue-200 dark:hover:bg-primary/30 dark:border dark:border-blue-400/30 transition-all shadow-sm hover:shadow-md"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-slate-950 px-6 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
               >
-                Get Started Free →
-              </a>
+                Create free account
+                <ArrowRight className="size-4" aria-hidden="true" />
+              </Link>
               <a
-                href="/pricing"
-                className="w-full sm:w-auto inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-all shadow-sm"
+                href="#workflow"
+                className="inline-flex h-12 items-center justify-center rounded-md border border-slate-900/15 bg-white px-6 text-sm font-semibold text-slate-800 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
               >
-                See Pricing
+                See how it works
               </a>
             </div>
 
-            {/* Trust */}
-            <p
-              className="anim-fade-in text-xs text-slate-400 dark:text-slate-600"
-              style={{ animationDelay: "0.5s" }}
-            >
-              No setup fees · No credit card required · Cancel anytime
-            </p>
+            <div className="mt-6 grid gap-2 text-sm text-slate-600 dark:text-slate-300 sm:mt-8 sm:grid-cols-3 sm:gap-3">
+              {outcomes.map((item) => (
+                <div key={item} className="flex gap-2">
+                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-700 dark:text-emerald-400" aria-hidden="true" />
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <ProductPreview />
+        </section>
+
+        <section id="features" className="border-y border-slate-900/10 bg-white py-16 dark:border-white/10 dark:bg-slate-900/45 sm:py-20">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <div className="max-w-2xl">
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-amber-800 dark:text-amber-300">Workspace</p>
+              <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">Everything the agent needs to help you.</h2>
+              <p className="mt-4 text-base leading-7 text-slate-600 dark:text-slate-300">
+                The product is designed around real contractor workflows: capture the request, organize the job, send the paperwork, and follow up.
+              </p>
+            </div>
+
+            <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {features.map((feature) => {
+                const Icon = feature.icon;
+                return (
+                  <article
+                    key={feature.title}
+                    className="rounded-lg border border-slate-900/10 bg-[#fbfcf8] p-5 transition-all hover:-translate-y-0.5 hover:border-slate-900/20 hover:shadow-sm dark:border-white/10 dark:bg-slate-950/70 dark:hover:border-white/20"
+                  >
+                    <div className="mb-5 flex size-11 items-center justify-center rounded-md bg-slate-950 text-white dark:bg-white dark:text-slate-950">
+                      <Icon className="size-5" aria-hidden="true" />
+                    </div>
+                    <h3 className="text-base font-semibold">{feature.title}</h3>
+                    <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{feature.desc}</p>
+                  </article>
+                );
+              })}
+            </div>
           </div>
         </section>
 
-        {/* ── Feature Grid ───────────────────────────────────────────────── */}
-        <section className="w-full max-w-5xl px-4 sm:px-6 pb-16 sm:pb-20">
-          <div
-            ref={featuresRef.ref}
-            className="text-center mb-8 sm:mb-12 reveal-card"
-            style={featuresRef.visible ? { transitionDelay: "0s" } : {}}
-          >
-            <h2
-              className={`text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white ${featuresRef.visible ? "visible" : ""}`}
-            >
-              Everything you need, nothing you don&apos;t
-            </h2>
-            <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 mt-2 max-w-xl mx-auto">
-              WorksApp replaces the clipboard, the spreadsheet, and the guesswork.
+        <section id="workflow" className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[0.85fr_1.15fr]">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-amber-800 dark:text-amber-300">Workflow</p>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">From WhatsApp message to paid invoice.</h2>
+            <p className="mt-4 text-base leading-7 text-slate-600 dark:text-slate-300">
+              The experience stays simple on the surface, but every message is routed back to the right profile and workspace data.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-            {features.map((f, i) => (
-              <FeatureCard key={f.title} feature={f} delay={i * 80} />
+          <div className="grid gap-3">
+            {workflow.map((item, index) => (
+              <div key={item} className="grid grid-cols-[48px_1fr] gap-4 rounded-lg border border-slate-900/10 bg-white p-4 dark:border-white/10 dark:bg-white/5">
+                <div className="flex size-12 items-center justify-center rounded-md bg-amber-100 text-sm font-bold text-amber-900 dark:bg-amber-300/10 dark:text-amber-200">
+                  {String(index + 1).padStart(2, "0")}
+                </div>
+                <p className="self-center text-base leading-7 text-slate-700 dark:text-slate-200">{item}</p>
+              </div>
             ))}
           </div>
         </section>
 
-        {/* ── How It Works ───────────────────────────────────────────────── */}
-        <section className="w-full bg-white dark:bg-slate-900 border-t border-b border-slate-200 dark:border-slate-800 py-14 sm:py-20 px-4 sm:px-6">
-          <div className="max-w-5xl mx-auto">
-            <div
-              ref={stepsRef.ref}
-              className={`text-center mb-10 sm:mb-14 reveal-card ${stepsRef.visible ? "visible" : ""}`}
-            >
-              <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
-                How it works
-              </h2>
-              <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 mt-2">
-                Three steps. That&apos;s it.
+        <section className="px-4 pb-16 sm:px-6 sm:pb-20">
+          <div className="mx-auto grid max-w-6xl gap-8 rounded-lg bg-slate-950 p-6 text-white dark:bg-white dark:text-slate-950 sm:p-8 lg:grid-cols-[1fr_auto] lg:items-center">
+            <div>
+              <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-amber-200 dark:text-amber-700">
+                <ShieldCheck className="size-4" aria-hidden="true" />
+                Built around account-level context
+              </div>
+              <h2 className="max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">Give your agent one reliable number and one reliable source of truth.</h2>
+              <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300 dark:text-slate-700">
+                Once a phone number is linked, messages route to that user&apos;s profile, projects, searches, invoices, clients, and memory.
               </p>
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
-              {steps.map((step, i) => (
-                <StepCard key={step.num} step={step} delay={i * 100} parentVisible={stepsRef.visible} />
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ── CTA Banner ─────────────────────────────────────────────────── */}
-        <section className="w-full px-4 sm:px-6 py-16 sm:py-24">
-          <div
-            ref={ctaRef.ref}
-            className={`max-w-3xl mx-auto rounded-2xl sm:rounded-3xl bg-primary dark:bg-slate-800 px-6 sm:px-12 py-10 sm:py-14 text-center reveal-card ${ctaRef.visible ? "visible" : ""}`}
-          >
-            <h2 className="text-2xl sm:text-4xl font-bold text-white leading-snug">
-              Stop losing jobs to disorganization.
-            </h2>
-            <p className="text-sm sm:text-base text-slate-300 mt-3 mb-7 max-w-lg mx-auto leading-relaxed">
-              WorksApp handles the paperwork so you can focus on the work. Start free today.
-            </p>
-            <a
+            <Link
               href="/auth/signup"
-              className="inline-flex items-center justify-center rounded-xl px-7 py-3.5 text-sm font-semibold text-primary bg-white hover:bg-slate-100 transition-all shadow-sm hover:shadow-md"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-white px-6 text-sm font-semibold text-slate-950 transition-colors hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-800"
             >
-              Create your free account →
-            </a>
+              Start free
+              <ArrowRight className="size-4" aria-hidden="true" />
+            </Link>
           </div>
         </section>
-
       </main>
 
-      {/* ── Footer ─────────────────────────────────────────────────────────── */}
-      <footer className="shrink-0 py-5 text-center text-xs text-slate-400 dark:text-slate-600 border-t border-slate-200 dark:border-slate-800">
-        Powered by{" "}
-        <a href="https://otterq.com/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-          OtterQ
-        </a>
-        {" "}· Built for the trades ·{" "}
-        <a href="/privacy-policy" className="text-primary hover:underline">
-          Privacy Policy
-        </a>
+      <footer className="border-t border-slate-900/10 py-6 text-sm text-slate-600 dark:border-white/10 dark:text-slate-400">
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <span>Powered by OtterQ. Built for the trades.</span>
+          <div className="flex gap-5">
+            <Link href="/pricing" className="hover:text-slate-950 dark:hover:text-white">Pricing</Link>
+            <Link href="/privacy-policy" className="hover:text-slate-950 dark:hover:text-white">Privacy Policy</Link>
+          </div>
+        </div>
       </footer>
     </div>
   );
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-function FeatureCard({ feature, delay }: { feature: typeof features[0]; delay: number }) {
-  const { ref, visible } = useInView(0.1);
+function ProductPreview() {
   return (
-    <div
-      ref={ref}
-      className={`reveal-card flex flex-row sm:flex-col items-start gap-3 sm:gap-4 bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow ${visible ? "visible" : ""}`}
-      style={visible ? { transitionDelay: `${delay}ms` } : {}}
-    >
-      <div className="text-2xl sm:text-3xl shrink-0">{feature.icon}</div>
-      <div className="flex flex-col gap-0.5 sm:gap-1.5">
-        <div className="font-semibold text-slate-900 dark:text-white text-sm sm:text-base">{feature.title}</div>
-        <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">{feature.desc}</div>
+    <div className="relative mx-auto w-full max-w-xl lg:mx-0">
+      <div className="rounded-lg border border-slate-900/10 bg-white p-3 shadow-xl shadow-slate-900/10 dark:border-white/10 dark:bg-slate-900 dark:shadow-black/30">
+        <div className="rounded-md border border-slate-900/10 bg-[#f6f8f3] p-4 dark:border-white/10 dark:bg-slate-950">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Today</p>
+              <h2 className="text-lg font-bold">Dashboard</h2>
+            </div>
+            <div className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-300">
+              Agent online
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            {[
+              ["Open jobs", "12"],
+              ["Draft invoices", "$4.8k"],
+              ["Due this week", "5"],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-md border border-slate-900/10 bg-white p-3 dark:border-white/10 dark:bg-white/5">
+                <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
+                <p className="mt-1 text-xl font-bold">{value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_0.9fr]">
+            <div className="rounded-md border border-slate-900/10 bg-white p-4 dark:border-white/10 dark:bg-white/5">
+              <div className="mb-3 flex items-center gap-2">
+                <ClipboardList className="size-4 text-amber-700 dark:text-amber-300" aria-hidden="true" />
+                <p className="font-semibold">Project queue</p>
+              </div>
+              {["Kitchen remodel", "Roof repair", "Patio concrete"].map((job, index) => (
+                <div key={job} className="flex items-center justify-between border-t border-slate-900/10 py-3 first:border-t-0 dark:border-white/10">
+                  <div>
+                    <p className="text-sm font-medium">{job}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{index === 0 ? "Invoice ready" : index === 1 ? "Proposal pending" : "Scheduled"}</p>
+                  </div>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 dark:bg-white/10 dark:text-slate-200">
+                    {index === 0 ? "Send" : "Review"}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="rounded-md border border-emerald-700/20 bg-emerald-50 p-4 dark:border-emerald-300/20 dark:bg-emerald-300/10">
+              <div className="mb-3 flex items-center gap-2">
+                <MessageSquareText className="size-4 text-emerald-700 dark:text-emerald-300" aria-hidden="true" />
+                <p className="font-semibold">WhatsApp agent</p>
+              </div>
+              <div className="space-y-3 text-sm">
+                <div className="rounded-md bg-white p-3 text-slate-700 dark:bg-slate-950 dark:text-slate-200">
+                  Draft an invoice for the Blanco patio job.
+                </div>
+                <div className="rounded-md bg-emerald-700 p-3 text-white dark:bg-emerald-500 dark:text-slate-950">
+                  Done. I found the project, added line items, and prepared a payment link.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
-  );
-}
-
-function StepCard({
-  step,
-  delay,
-  parentVisible,
-}: {
-  step: typeof steps[0];
-  delay: number;
-  parentVisible: boolean;
-}) {
-  return (
-    <div
-      className={`reveal-card flex flex-col gap-3 ${parentVisible ? "visible" : ""}`}
-      style={parentVisible ? { transitionDelay: `${delay}ms` } : {}}
-    >
-      <span className="text-3xl sm:text-4xl font-black text-slate-200 dark:text-slate-700 leading-none">
-        {step.num}
-      </span>
-      <h3 className="font-semibold text-slate-900 dark:text-white text-base sm:text-lg">{step.title}</h3>
-      <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">{step.desc}</p>
     </div>
   );
 }

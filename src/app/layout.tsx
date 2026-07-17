@@ -14,8 +14,38 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://worksapp.co"),
   title: "WorksApp",
   description: "AI-powered project management for small contractors.",
+  icons: {
+    icon: [
+      { url: "/logo.png", type: "image/png" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
+  openGraph: {
+    title: "WorksApp",
+    description: "AI-powered project management for small contractors.",
+    url: "/",
+    siteName: "WorksApp",
+    images: [
+      {
+        url: "/logo.png",
+        width: 512,
+        height: 512,
+        alt: "WorksApp logo",
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "WorksApp",
+    description: "AI-powered project management for small contractors.",
+    images: ["/logo.png"],
+  },
 };
 
 export default function RootLayout({

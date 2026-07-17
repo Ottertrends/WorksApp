@@ -16,6 +16,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DEFAULT_PHONE_COUNTRY_CODE, PHONE_COUNTRY_CODES } from "@/lib/phone/country-codes";
+import { normalizePhoneE164 } from "@/lib/phone/normalize";
 
 const quotesOptions = ["1-5", "6-15", "16-30", "30+"] as const;
 
@@ -23,6 +25,7 @@ const signupSchema = z.object({
   full_name: z.string().min(1, "Full name is required"),
   company_name: z.string().min(1, "Company name is required"),
   email: z.string().email("Enter a valid email"),
+  phone_country_code: z.string().min(1, "Country code is required"),
   phone: z.string().min(1, "Phone is required"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   quotes_per_month: z.enum(quotesOptions),
@@ -97,6 +100,7 @@ export default function SignupPage() {
       full_name: "",
       company_name: "",
       email: "",
+      phone_country_code: DEFAULT_PHONE_COUNTRY_CODE,
       phone: "",
       password: "",
       quotes_per_month: "1-5",
@@ -150,7 +154,8 @@ export default function SignupPage() {
           data: {
             full_name: values.full_name,
             company_name: values.company_name,
-            phone: values.phone,
+            phone: normalizePhoneE164(values.phone, values.phone_country_code) ?? values.phone,
+            phone_e164: normalizePhoneE164(values.phone, values.phone_country_code),
             quotes_per_month: values.quotes_per_month,
             business_areas: values.business_areas,
             services: values.services,
@@ -211,7 +216,32 @@ export default function SignupPage() {
               </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="phone">{ta.phone} *</Label>
-                <Input id="phone" {...register("phone")} />
+                <div className="grid grid-cols-[128px_1fr] gap-2">
+                  <Select
+                    value={watch("phone_country_code")}
+                    onValueChange={(v) =>
+                      setValue("phone_country_code", v, {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      })
+                    }
+                  >
+                    <SelectTrigger aria-label="Phone country code">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PHONE_COUNTRY_CODES.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.dialCode} {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input id="phone" inputMode="tel" autoComplete="tel" placeholder="555 123 4567" {...register("phone")} />
+                </div>
+                {errors.phone_country_code ? (
+                  <div className="text-sm text-danger">{errors.phone_country_code.message}</div>
+                ) : null}
                 {errors.phone ? (
                   <div className="text-sm text-danger">{errors.phone.message}</div>
                 ) : null}

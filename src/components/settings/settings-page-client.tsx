@@ -19,6 +19,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { IntegrationsSettings } from "@/components/settings/integrations-settings";
 import { WhatsAppConnection } from "@/components/settings/whatsapp-connection";
 import type { TaxRate } from "@/lib/types/database";
+import { DEFAULT_PHONE_COUNTRY_CODE, PHONE_COUNTRY_CODES, inferPhoneCountryCode } from "@/lib/phone/country-codes";
+import { normalizePhoneE164 } from "@/lib/phone/normalize";
 
 // ── Tax Rates Card ────────────────────────────────────────────────────────────
 
@@ -259,6 +261,9 @@ export function SettingsPageClient({ userId, profile }: { userId: string; profil
   const [companyName, setCompanyName] = React.useState(profile.company_name);
   const [email, setEmail] = React.useState(profile.email);
   const [phone, setPhone] = React.useState(profile.phone);
+  const [phoneCountryCode, setPhoneCountryCode] = React.useState(
+    inferPhoneCountryCode(profile.phone_e164 ?? profile.phone) || DEFAULT_PHONE_COUNTRY_CODE,
+  );
   const [zip, setZip] = React.useState(((profile as unknown) as Record<string, unknown>).zip as string ?? "");
   const [quotesPerMonth, setQuotesPerMonth] = React.useState<QuotesPerMonth>(
     (profile.quotes_per_month ?? "1-5") as QuotesPerMonth,
@@ -281,13 +286,16 @@ export function SettingsPageClient({ userId, profile }: { userId: string; profil
         if (authError) throw authError;
       }
 
+      const normalizedPhone = normalizePhoneE164(phone, phoneCountryCode);
+
       const { error } = await supabase
         .from("profiles")
         .update({
           full_name: fullName.trim(),
           company_name: companyName.trim(),
           email: email.trim(),
-          phone: phone.trim(),
+          phone: normalizedPhone ?? phone.trim(),
+          phone_e164: normalizedPhone,
           zip: zip.trim() || null,
           quotes_per_month: quotesPerMonth,
           business_areas: businessAreas.length ? businessAreas : [],
@@ -295,7 +303,12 @@ export function SettingsPageClient({ userId, profile }: { userId: string; profil
         })
         .eq("id", userId);
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === "23505") {
+          throw new Error("That phone number is already linked to another WorksApp account.");
+        }
+        throw error;
+      }
       toast.success(t.toasts.profileUpdated);
       router.refresh();
     } catch (e: unknown) {
@@ -390,7 +403,31 @@ export function SettingsPageClient({ userId, profile }: { userId: string; profil
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="phone">{ts.phone}</Label>
-              <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+              <div className="grid grid-cols-[128px_1fr] gap-2">
+                <Select value={phoneCountryCode} onValueChange={setPhoneCountryCode}>
+                  <SelectTrigger aria-label="Phone country code">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PHONE_COUNTRY_CODES.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.dialCode} {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  id="phone"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="555 123 4567"
+                />
+              </div>
+              <p className="text-xs text-slate-400">
+                Saved with country code for WhatsApp agent routing.
+              </p>
             </div>
           </div>
 
