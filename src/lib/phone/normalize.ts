@@ -19,5 +19,5 @@ export function normalizePhoneE164(input: string | null | undefined, defaultCoun
     return `+${digits}`;
   }
 
-  return `+${digits}`;
+  return `+${countryCode}${digits}`;
 }

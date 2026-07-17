@@ -7,6 +7,7 @@ import type {
 } from "@/lib/evolution/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { extractWhatsAppText, extractWhatsAppMedia } from "@/lib/webhooks/evolution-message";
+import { whatsappDigitsLooselyEqual } from "@/lib/webhooks/phone-match";
 import { allowWebhookEvent } from "@/lib/webhooks/rate-limit";
 import {
   evolutionInstanceName,
@@ -65,7 +66,7 @@ async function resolveOwnerJids(
   const { data: prof } = await admin
     .from("profiles")
     .select(
-      "phone, whatsapp_instance_id, whatsapp_sessions, whatsapp_owner_jid, whatsapp_owner_lid, whatsapp_lid_pending",
+      "phone, phone_e164, whatsapp_instance_id, whatsapp_sessions, whatsapp_owner_jid, whatsapp_owner_lid, whatsapp_lid_pending",
     )
     .eq("id", userId)
     .maybeSingle();
@@ -75,15 +76,30 @@ async function resolveOwnerJids(
     instanceName,
     evolutionInstanceName(userId),
   );
+  const profilePhone = typeof prof?.phone_e164 === "string" && prof.phone_e164.trim()
+    ? prof.phone_e164
+    : prof?.phone;
 
   // 1. Prefer stored canonical JID for this Evolution instance
   if (storedJid && typeof storedJid === "string") {
-    console.log(
-      "[evolution-webhook] ownerJid from session:",
-      instanceName,
-      storedJid,
-    );
-    return { ownerJid: storedJid, ownerLid, lidPending };
+    if (
+      typeof profilePhone === "string" &&
+      profilePhone.trim() &&
+      !whatsappDigitsLooselyEqual(storedJid, profilePhone)
+    ) {
+      console.log(
+        "[evolution-webhook] stored ownerJid differs from profile phone; using profile fallback:",
+        storedJid,
+        profilePhone,
+      );
+    } else {
+      console.log(
+        "[evolution-webhook] ownerJid from session:",
+        instanceName,
+        storedJid,
+      );
+      return { ownerJid: storedJid, ownerLid, lidPending };
+    }
   }
 
   // 2. Trust payload.sender if it looks like a real phone JID
@@ -107,7 +123,7 @@ async function resolveOwnerJids(
   }
 
   // 3. Last resort: profile phone (shared). US 10-digit → prepend 1.
-  const phone = prof?.phone;
+  const phone = profilePhone;
   if (!phone || typeof phone !== "string")
     return { ownerJid: null, ownerLid, lidPending };
   const digits = phone.replace(/\D/g, "");
