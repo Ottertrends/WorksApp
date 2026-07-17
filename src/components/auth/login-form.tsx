@@ -45,6 +45,7 @@ export function LoginForm() {
   const [forgotEmail, setForgotEmail] = React.useState("");
   const [forgotSent, setForgotSent] = React.useState(false);
   const [forgotLoading, setForgotLoading] = React.useState(false);
+  const [googleLoading, setGoogleLoading] = React.useState(false);
 
   const { handleSubmit, register, formState: { errors, isSubmitting } } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -71,21 +72,33 @@ export function LoginForm() {
 
   async function signInWithGoogle() {
     setDebugError(null);
+    setGoogleLoading(true);
     try {
       const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin).replace(/\/$/, "");
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: `${appUrl}/auth/callback` },
+        options: {
+          redirectTo: `${appUrl}/auth/callback`,
+          skipBrowserRedirect: true,
+        },
       });
       if (error) {
         const msg = extractAuthErrorMessage(error);
         setDebugError(msg);
         toast.error(msg);
+        setGoogleLoading(false);
+        return;
       }
+      if (data.url) {
+        window.location.assign(data.url);
+        return;
+      }
+      setGoogleLoading(false);
     } catch (e: unknown) {
       const msg = extractAuthErrorMessage(e);
       setDebugError(msg);
       toast.error(msg);
+      setGoogleLoading(false);
     }
   }
 
@@ -178,7 +191,17 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
+    <form onSubmit={handleSubmit(onSubmit)} className="relative flex flex-col gap-5">
+      {googleLoading && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/80 backdrop-blur-sm dark:bg-slate-900/80">
+          <div className="flex flex-col items-center gap-3 text-center">
+            <div className="size-8 animate-spin rounded-full border-2 border-slate-300 border-t-slate-950 dark:border-slate-700 dark:border-t-white" />
+            <div className="text-sm font-medium text-slate-700 dark:text-slate-200">
+              Redirecting to Google...
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex flex-col gap-2">
         <Label htmlFor="lf-email">Email</Label>
         <Input id="lf-email" type="email" placeholder="you@example.com" {...register("email")} />
@@ -210,9 +233,10 @@ export function LoginForm() {
         type="button"
         variant="outline"
         className="w-full"
+        disabled={googleLoading || isSubmitting}
         onClick={() => void signInWithGoogle()}
       >
-        Continue with Google
+        {googleLoading ? "Redirecting..." : "Continue with Google"}
       </Button>
       <div className="text-sm text-slate-500 text-center">
         No account?{" "}
