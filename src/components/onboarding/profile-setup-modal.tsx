@@ -3,6 +3,10 @@
 import * as React from "react";
 import { toast } from "sonner";
 
+import { CountryCodeSelect } from "@/components/phone/country-code-select";
+import { DEFAULT_PHONE_COUNTRY_CODE, phoneCountryValueToDialCode } from "@/lib/phone/country-codes";
+import { normalizePhoneE164 } from "@/lib/phone/normalize";
+
 const BUSINESS_AREA_OPTIONS = [
   { value: "residential", label: "Residential" },
   { value: "commercial", label: "Commercial" },
@@ -40,6 +44,7 @@ export function ProfileSetupModal({ show, defaultCompanyName = "" }: Props) {
   const [submitting, setSubmitting] = React.useState(false);
 
   const [phone, setPhone] = React.useState("");
+  const [phoneCountryCode, setPhoneCountryCode] = React.useState<string>(DEFAULT_PHONE_COUNTRY_CODE);
   const [companyName, setCompanyName] = React.useState(defaultCompanyName);
   const [zipCode, setZipCode] = React.useState("");
   const [quotesPerMonth, setQuotesPerMonth] = React.useState("1-5");
@@ -73,10 +78,11 @@ export function ProfileSetupModal({ show, defaultCompanyName = "" }: Props) {
 
     setSubmitting(true);
     try {
+      const normalizedPhone = normalizePhoneE164(phone, phoneCountryValueToDialCode(phoneCountryCode)) ?? phone;
       const res = await fetch("/api/onboarding/complete-profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, company_name: companyName, zip_code: zipCode, quotes_per_month: quotesPerMonth, business_areas: businessAreas, services }),
+        body: JSON.stringify({ phone: normalizedPhone, phone_e164: normalizedPhone, company_name: companyName, zip_code: zipCode, quotes_per_month: quotesPerMonth, business_areas: businessAreas, services }),
       });
       const j = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(j.error ?? "Failed to save profile");
@@ -104,13 +110,16 @@ export function ProfileSetupModal({ show, defaultCompanyName = "" }: Props) {
             <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
               Phone number <span className="text-red-500">*</span>
             </label>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+1 (555) 000-0000"
-              className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/50"
-            />
+            <div className="grid grid-cols-[128px_1fr] gap-2">
+              <CountryCodeSelect value={phoneCountryCode} onValueChange={setPhoneCountryCode} />
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="555 000 0000"
+                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
           </div>
 
           {/* Company name */}

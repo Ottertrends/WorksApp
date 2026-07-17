@@ -464,10 +464,12 @@ async function handleMessagesUpsert(
   // Handle media upload if present
   let mediaContext: string | null = null;
   if (mediaInfo) {
+    let storagePath: string | null = null;
+    let mimeToUse = mediaInfo.mimeType;
     try {
       const evolution = createEvolutionClient();
       const { base64, mimetype } = await evolution.getMediaBase64(instance, msgData);
-      const mimeToUse = mimetype || mediaInfo.mimeType;
+      mimeToUse = mimetype || mediaInfo.mimeType;
 
       const extMap: Record<string, string> = {
         "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif",
@@ -475,17 +477,29 @@ async function handleMessagesUpsert(
       };
       const ext = extMap[mimeToUse] ?? (mediaInfo.type === "image" ? "jpg" : "mp4");
       const mediaUuid = crypto.randomUUID();
-      const storagePath = `${userId}/${mediaUuid}.${ext}`;
+      storagePath = `${userId}/${mediaUuid}.${ext}`;
 
       const buffer = Buffer.from(base64, "base64");
+      console.log("[evolution-webhook] Media download ok", {
+        messageId: waMsgId,
+        mimeType: mimeToUse,
+        storagePath,
+        bytes: buffer.length,
+        caption: mediaInfo.caption,
+      });
       const { error: uploadErr } = await admin.storage
         .from("project-media")
         .upload(storagePath, buffer, { contentType: mimeToUse });
 
       if (uploadErr) {
-        console.error("[evolution-webhook] Storage upload error:", uploadErr.message);
+        console.error("[evolution-webhook] Storage upload error", {
+          messageId: waMsgId,
+          mimeType: mimeToUse,
+          storagePath,
+          error: uploadErr,
+        });
       } else {
-        const { data: mediaRow } = await admin
+        const { data: mediaRow, error: mediaInsertErr } = await admin
           .from("project_media")
           .insert({
             user_id: userId,
@@ -500,6 +514,15 @@ async function handleMessagesUpsert(
           .select("id")
           .single();
 
+        if (mediaInsertErr) {
+          console.error("[evolution-webhook] project_media insert error", {
+            messageId: waMsgId,
+            mimeType: mimeToUse,
+            storagePath,
+            error: mediaInsertErr,
+          });
+        }
+
         if (mediaRow?.id) {
           const emoji = mediaInfo.type === "video" ? "🎥" : "📸";
           const label = mediaInfo.type === "video" ? "Video" : "Image";
@@ -509,7 +532,12 @@ async function handleMessagesUpsert(
         }
       }
     } catch (mediaErr) {
-      console.error("[evolution-webhook] Media processing error:", mediaErr instanceof Error ? mediaErr.message : mediaErr);
+      console.error("[evolution-webhook] Media processing error", {
+        messageId: waMsgId,
+        mimeType: mimeToUse,
+        storagePath,
+        error: mediaErr instanceof Error ? mediaErr.message : mediaErr,
+      });
     }
 
     // If upload failed (or getMediaBase64 failed), still build a fallback so the agent can respond

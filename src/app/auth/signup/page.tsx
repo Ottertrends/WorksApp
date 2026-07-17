@@ -16,7 +16,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DEFAULT_PHONE_COUNTRY_CODE, PHONE_COUNTRY_CODES } from "@/lib/phone/country-codes";
+import { CountryCodeSelect } from "@/components/phone/country-code-select";
+import { DEFAULT_PHONE_COUNTRY_CODE, phoneCountryValueToDialCode } from "@/lib/phone/country-codes";
 import { normalizePhoneE164 } from "@/lib/phone/normalize";
 
 const quotesOptions = ["1-5", "6-15", "16-30", "30+"] as const;
@@ -122,12 +123,20 @@ export default function SignupPage() {
   const selectedServices = watch("services");
 
   React.useEffect(() => {
+    let active = true;
+    void supabase.auth.getSession().then((result: Awaited<ReturnType<typeof supabase.auth.getSession>>) => {
+      if (active && result.data.session?.user) router.replace("/dashboard");
+    });
+
     const { data: sub } = supabase.auth.onAuthStateChange(
       (_event: AuthChangeEvent, session: Session | null) => {
-        if (session?.user) router.push("/dashboard");
+        if (session?.user) router.replace("/dashboard");
       },
     );
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      active = false;
+      sub.subscription.unsubscribe();
+    };
   }, [router]);
 
   async function signInWithGoogle() {
@@ -145,7 +154,8 @@ export default function SignupPage() {
 
   async function onSubmit(values: SignupValues) {
     try {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "";
+      const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin).replace(/\/$/, "");
+      const normalizedPhone = normalizePhoneE164(values.phone, phoneCountryValueToDialCode(values.phone_country_code));
       const { data, error } = await supabase.auth.signUp({
         email: values.email,
         password: values.password,
@@ -154,8 +164,8 @@ export default function SignupPage() {
           data: {
             full_name: values.full_name,
             company_name: values.company_name,
-            phone: normalizePhoneE164(values.phone, values.phone_country_code) ?? values.phone,
-            phone_e164: normalizePhoneE164(values.phone, values.phone_country_code),
+            phone: normalizedPhone ?? values.phone,
+            phone_e164: normalizedPhone,
             quotes_per_month: values.quotes_per_month,
             business_areas: values.business_areas,
             services: values.services,
@@ -182,8 +192,8 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center px-4 py-10">
-      <Card className="w-full max-w-2xl">
+    <div className="min-h-dvh flex items-center justify-center bg-[#f6f8f3] px-4 py-10 text-slate-950 dark:bg-slate-950 dark:text-slate-50">
+      <Card className="w-full max-w-2xl rounded-lg border-slate-900/10 bg-white shadow-xl shadow-slate-900/10 dark:border-white/10 dark:bg-slate-900/70">
         <CardHeader>
           <CardTitle>{ta.signupTitle}</CardTitle>
         </CardHeader>
@@ -217,7 +227,7 @@ export default function SignupPage() {
               <div className="flex flex-col gap-2">
                 <Label htmlFor="phone">{ta.phone} *</Label>
                 <div className="grid grid-cols-[128px_1fr] gap-2">
-                  <Select
+                  <CountryCodeSelect
                     value={watch("phone_country_code")}
                     onValueChange={(v) =>
                       setValue("phone_country_code", v, {
@@ -225,18 +235,7 @@ export default function SignupPage() {
                         shouldValidate: true,
                       })
                     }
-                  >
-                    <SelectTrigger aria-label="Phone country code">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PHONE_COUNTRY_CODES.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.dialCode} {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  />
                   <Input id="phone" inputMode="tel" autoComplete="tel" placeholder="555 123 4567" {...register("phone")} />
                 </div>
                 {errors.phone_country_code ? (

@@ -11,6 +11,7 @@ export async function POST(req: NextRequest) {
 
   const body = (await req.json()) as {
     phone?: string;
+    phone_e164?: string;
     company_name?: string;
     zip_code?: string;
     quotes_per_month?: string;
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest) {
     services?: string[];
   };
 
-  const { phone, company_name, zip_code, quotes_per_month, business_areas, services } = body;
+  const { phone, phone_e164, company_name, zip_code, quotes_per_month, business_areas, services } = body;
 
   if (!phone?.trim()) {
     return NextResponse.json({ error: "Phone is required" }, { status: 400 });
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest) {
     .from("profiles")
     .update({
       phone: phone.trim(),
+      phone_e164: phone_e164?.trim() || phone.trim(),
       company_name: company_name.trim(),
       zip_code: zip_code?.trim() ?? null,
       quotes_per_month: quotes_per_month ?? "1-5",

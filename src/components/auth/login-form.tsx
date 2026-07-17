@@ -53,12 +53,20 @@ export function LoginForm() {
   });
 
   React.useEffect(() => {
+    let active = true;
+    void supabase.auth.getSession().then((result: Awaited<ReturnType<typeof supabase.auth.getSession>>) => {
+      if (active && result.data.session?.user) router.replace("/dashboard");
+    });
+
     const { data: sub } = supabase.auth.onAuthStateChange(
       (_event: AuthChangeEvent, session: Session | null) => {
-        if (session?.user) router.push("/dashboard");
+        if (session?.user) router.replace("/dashboard");
       },
     );
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      active = false;
+      sub.subscription.unsubscribe();
+    };
   }, [router]);
 
   async function signInWithGoogle() {
@@ -96,7 +104,7 @@ export function LoginForm() {
       }
       toast.success(t.toasts.loggedIn);
       router.refresh();
-      router.push("/dashboard");
+      router.replace("/dashboard");
     } catch (e: unknown) {
       const msg = extractAuthErrorMessage(e);
       setDebugError(msg);

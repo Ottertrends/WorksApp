@@ -4,6 +4,7 @@ export function normalizePhoneE164(input: string | null | undefined, defaultCoun
 
   const hasPlus = raw.startsWith("+");
   const digits = raw.replace(/\D/g, "");
+  const countryCode = defaultCountryCode.replace(/\D/g, "");
   if (!digits) return null;
 
   if (hasPlus) {
@@ -11,13 +12,12 @@ export function normalizePhoneE164(input: string | null | undefined, defaultCoun
   }
 
   if (digits.length === 10) {
-    return `+${defaultCountryCode}${digits}`;
+    return `+${countryCode}${digits}`;
   }
 
-  if (digits.length === 11 && digits.startsWith(defaultCountryCode)) {
+  if (digits.startsWith(countryCode)) {
     return `+${digits}`;
   }
 
   return `+${digits}`;
 }
-

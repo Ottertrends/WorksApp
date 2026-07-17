@@ -41,8 +41,8 @@ export async function POST(
       .single();
 
     if (invErr || !inv) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
-    if (inv.status !== "sent") {
-      return NextResponse.json({ error: "Set invoice status to Sent before generating a payment link" }, { status: 400 });
+    if (!["open", "sent"].includes(inv.status as string)) {
+      return NextResponse.json({ error: "Finalize the invoice before generating a payment link" }, { status: 400 });
     }
 
     if (inv.stripe_payment_link_url) {

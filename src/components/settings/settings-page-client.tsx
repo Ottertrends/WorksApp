@@ -19,7 +19,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { IntegrationsSettings } from "@/components/settings/integrations-settings";
 import { WhatsAppConnection } from "@/components/settings/whatsapp-connection";
 import type { TaxRate } from "@/lib/types/database";
-import { DEFAULT_PHONE_COUNTRY_CODE, PHONE_COUNTRY_CODES, inferPhoneCountryCode } from "@/lib/phone/country-codes";
+import { CountryCodeSelect } from "@/components/phone/country-code-select";
+import { DEFAULT_PHONE_COUNTRY_CODE, inferPhoneCountryCode, phoneCountryValueToDialCode } from "@/lib/phone/country-codes";
 import { normalizePhoneE164 } from "@/lib/phone/normalize";
 
 // ── Tax Rates Card ────────────────────────────────────────────────────────────
@@ -286,7 +287,7 @@ export function SettingsPageClient({ userId, profile }: { userId: string; profil
         if (authError) throw authError;
       }
 
-      const normalizedPhone = normalizePhoneE164(phone, phoneCountryCode);
+      const normalizedPhone = normalizePhoneE164(phone, phoneCountryValueToDialCode(phoneCountryCode));
 
       const { error } = await supabase
         .from("profiles")
@@ -404,18 +405,7 @@ export function SettingsPageClient({ userId, profile }: { userId: string; profil
             <div className="flex flex-col gap-2">
               <Label htmlFor="phone">{ts.phone}</Label>
               <div className="grid grid-cols-[128px_1fr] gap-2">
-                <Select value={phoneCountryCode} onValueChange={setPhoneCountryCode}>
-                  <SelectTrigger aria-label="Phone country code">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PHONE_COUNTRY_CODES.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.dialCode} {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <CountryCodeSelect value={phoneCountryCode} onValueChange={setPhoneCountryCode} />
                 <Input
                   id="phone"
                   inputMode="tel"
