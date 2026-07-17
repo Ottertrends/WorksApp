@@ -1,83 +1,49 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { DEFAULT_ANTHROPIC_MODEL, HAIKU_MODEL } from "./model";
+import OpenAI from "openai";
 
-/**
- * Heuristic patterns → SIMPLE turn → Haiku 4.5
- * These cover the most common contractor actions: listing, saving, status updates.
- */
+import { DEFAULT_OPENAI_MODEL, MINI_MODEL } from "./model";
+
 const SIMPLE_PATTERNS: RegExp[] = [
-  // Listing requests (ES + EN)
-  /^(lista|listar|muéstrame|ver|show|list|dame\s+mis?|muestra)\s+(mis?\s+)?(proyectos?|clientes?|facturas?|invoices?|precios?|propuestas?|horarios?|schedules?|eventos?|calendar)/i,
-  // Find/search a specific client or project by name
+  /^(lista|listar|mu\u00e9strame|ver|show|list|dame\s+mis?|muestra)\s+(mis?\s+)?(proyectos?|clientes?|facturas?|invoices?|precios?|propuestas?|horarios?|schedules?|eventos?|calendar)/i,
   /^(busca|encuentra|find|search)\s+(el\s+|la\s+|un\s+|una\s+)?(cliente|client|proyecto|project)\b/i,
-  // Status/payment updates
   /\b(marcar|marca|mark|set|cambiar\s+estado|update\s+status)\b.{0,40}(pagad|paid|sent|enviado|void|open)/i,
-  // Save a client
-  /^(guardar|save|agregar|añadir|add)\s+(cliente|client|al\s+directorio)/i,
-  // Add to price book
-  /\b(agregar|añadir|add).{0,20}(price\s*book|libro\s+de\s+precios)/i,
-  // View calendar / schedule
-  /^(qué\s+tengo|what.*schedule|mis?\s+event|ver\s+calendario|show.*calendar|my\s+schedule)/i,
-  // Simple greetings / status checks (bot handles these instantly)
-  /^(hola|hi|hello|hey|buenos?\s+(días?|tardes?|noches?))[.!?]?\s*$/i,
+  /^(guardar|save|agregar|a\u00f1adir|add)\s+(cliente|client|al\s+directorio)/i,
+  /\b(agregar|a\u00f1adir|add).{0,20}(price\s*book|libro\s+de\s+precios)/i,
+  /^(qu\u00e9\s+tengo|what.*schedule|mis?\s+event|ver\s+calendario|show.*calendar|my\s+schedule)/i,
+  /^(hola|hi|hello|hey|buenos?\s+(d\u00edas?|tardes?|noches?))[.!?]?\s*$/i,
 ];
 
-/**
- * Heuristic patterns → COMPLEX turn → Sonnet 4.6
- * Checked before SIMPLE so complex intent always wins.
- */
 const COMPLEX_PATTERNS: RegExp[] = [
-  // Proposals
   /\b(propuesta|proposal|genera\s+propuesta|generate\s+proposal|crea\s+(una\s+)?propuesta)\b/i,
-  // Web / internet search for prices
-  /\b(busca[r]?\s+(precio|en\s+internet|en\s+línea)|search.*(price|cost|rate)|cuánto\s+cuesta|how\s+much\s+(does|is|cost))\b/i,
-  // Create project
+  /\b(busca[r]?\s+(precio|en\s+internet|en\s+l\u00ednea)|search.*(price|cost|rate)|cu\u00e1nto\s+cuesta|how\s+much\s+(does|is|cost))\b/i,
   /\b(crear?\s+(un\s+)?proyecto|create\s+(a\s+)?project|nuevo\s+proyecto|new\s+project)\b/i,
-  // Create / generate invoice
   /\b(crear?\s+(una\s+)?factura|create\s+(an?\s+)?invoice|genera\s+(una\s+)?factura|hacer\s+(una\s+)?factura)\b/i,
-  // Delete project
   /\b(eliminar\s+proyecto|delete\s+project|borrar\s+proyecto|remove\s+project)\b/i,
-  // Create calendar / recurring event
   /\b(crear?\s+(un\s+)?(horario|calendario|evento\s+recurrente)|create\s+(a\s+)?(calendar|schedule|recurring))\b/i,
-  // Multi-instruction messages (contains "and" or "y" between two actions)
-  /\b(y\s+también|and\s+also|y\s+además|and\s+then)\b/i,
+  /\b(y\s+tambi\u00e9n|and\s+also|y\s+adem\u00e1s|and\s+then)\b/i,
 ];
 
-/**
- * Route a user message to the appropriate model tier.
- *
- * Priority order:
- * 1. Message > 300 chars → always Sonnet (likely complex)
- * 2. COMPLEX heuristic match → Sonnet
- * 3. SIMPLE heuristic match → Haiku
- * 4. No match → Haiku classification call (cheap fallback), default Sonnet on error
- */
 export async function routeToModel(
   userMessage: string,
-  client: Anthropic,
+  client: OpenAI,
 ): Promise<{ model: string; method: "heuristic-complex" | "heuristic-simple" | "classifier" | "length" | "fallback" }> {
   const msg = userMessage.trim();
 
-  // 1. Long messages are almost always complex
   if (msg.length > 300) {
-    return { model: DEFAULT_ANTHROPIC_MODEL, method: "length" };
+    return { model: DEFAULT_OPENAI_MODEL, method: "length" };
   }
 
-  // 2. Complex patterns take priority
   if (COMPLEX_PATTERNS.some((p) => p.test(msg))) {
-    return { model: DEFAULT_ANTHROPIC_MODEL, method: "heuristic-complex" };
+    return { model: DEFAULT_OPENAI_MODEL, method: "heuristic-complex" };
   }
 
-  // 3. Simple patterns
   if (SIMPLE_PATTERNS.some((p) => p.test(msg))) {
-    return { model: HAIKU_MODEL, method: "heuristic-simple" };
+    return { model: MINI_MODEL, method: "heuristic-simple" };
   }
 
-  // 4. Haiku classifier fallback
   try {
-    const classification = await client.messages.create({
-      model: HAIKU_MODEL,
-      max_tokens: 5,
+    const classification = await client.chat.completions.create({
+      model: MINI_MODEL,
+      max_completion_tokens: 5,
       messages: [
         {
           role: "user",
@@ -91,14 +57,10 @@ Message: "${msg.slice(0, 200)}"`,
         },
       ],
     });
-    const text =
-      classification.content[0]?.type === "text"
-        ? classification.content[0].text.trim().toLowerCase()
-        : "";
-    const model = text === "simple" ? HAIKU_MODEL : DEFAULT_ANTHROPIC_MODEL;
-    return { model, method: "classifier" };
+    const text = classification.choices[0]?.message.content?.trim().toLowerCase() ?? "";
+    return { model: text === "simple" ? MINI_MODEL : DEFAULT_OPENAI_MODEL, method: "classifier" };
   } catch (err) {
-    console.warn("[model-router] classifier failed, defaulting to Sonnet:", err instanceof Error ? err.message : err);
-    return { model: DEFAULT_ANTHROPIC_MODEL, method: "fallback" };
+    console.warn("[model-router] classifier failed, defaulting to ChatGPT:", err instanceof Error ? err.message : err);
+    return { model: DEFAULT_OPENAI_MODEL, method: "fallback" };
   }
 }

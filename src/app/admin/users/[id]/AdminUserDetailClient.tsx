@@ -42,12 +42,12 @@ interface Memory {
 
 interface UsageRow {
   date: string;
-  claude_input_tokens: number;
-  claude_output_tokens: number;
+  openai_input_tokens: number;
+  openai_output_tokens: number;
   tavily_searches: number;
   web_messages: number;
-  haiku_input_tokens: number;
-  haiku_output_tokens: number;
+  mini_input_tokens: number;
+  mini_output_tokens: number;
 }
 
 interface CheckResult {
@@ -59,7 +59,7 @@ interface CheckResult {
 interface DiagnosticsResult {
   ok: boolean;
   checks: {
-    anthropic: CheckResult;
+    openai: CheckResult;
     evolution: CheckResult;
     db: CheckResult;
     webhook: CheckResult;
@@ -111,21 +111,18 @@ export function AdminUserDetailClient({ userId, profile, projects, invoices, mem
   const [events, setEvents] = useState<BotEvent[] | null>(null);
   const [eventsLoading, setEventsLoading] = useState(false);
 
-  const totalSonnetIn  = usage.reduce((acc, u) => acc + u.claude_input_tokens, 0);
-  const totalSonnetOut = usage.reduce((acc, u) => acc + u.claude_output_tokens, 0);
-  const totalHaikuIn   = usage.reduce((acc, u) => acc + (u.haiku_input_tokens ?? 0), 0);
-  const totalHaikuOut  = usage.reduce((acc, u) => acc + (u.haiku_output_tokens ?? 0), 0);
-  const totalTokens    = totalSonnetIn + totalSonnetOut + totalHaikuIn + totalHaikuOut;
+  const totalMainIn  = usage.reduce((acc, u) => acc + u.openai_input_tokens, 0);
+  const totalMainOut = usage.reduce((acc, u) => acc + u.openai_output_tokens, 0);
+  const totalMiniIn   = usage.reduce((acc, u) => acc + (u.mini_input_tokens ?? 0), 0);
+  const totalMiniOut  = usage.reduce((acc, u) => acc + (u.mini_output_tokens ?? 0), 0);
+  const totalTokens    = totalMainIn + totalMainOut + totalMiniIn + totalMiniOut;
   const totalTavily    = usage.reduce((acc, u) => acc + u.tavily_searches, 0);
 
-  const haikuTokens  = totalHaikuIn + totalHaikuOut;
-  const sonnetTokens = totalSonnetIn + totalSonnetOut;
-  const haikuPct     = totalTokens > 0 ? Math.round((haikuTokens / totalTokens) * 100) : 0;
+  const miniTokens  = totalMiniIn + totalMiniOut;
+  const mainTokens = totalMainIn + totalMainOut;
+  const miniPct     = totalTokens > 0 ? Math.round((miniTokens / totalTokens) * 100) : 0;
 
-  // Cost estimates (per-million pricing)
-  const sonnetCost = (totalSonnetIn / 1_000_000) * 3 + (totalSonnetOut / 1_000_000) * 15;
-  const haikuCost  = (totalHaikuIn  / 1_000_000) * 0.8 + (totalHaikuOut / 1_000_000) * 4;
-  const totalCost  = sonnetCost + haikuCost;
+  const totalCost = 0;
 
   async function sendPasswordReset() {
     setResetSending(true);
@@ -387,14 +384,14 @@ export function AdminUserDetailClient({ userId, profile, projects, invoices, mem
           <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Model Split</h3>
           <div className="grid grid-cols-3 gap-4 mb-3">
             <div className="text-center">
-              <div className="text-lg font-bold text-slate-900 dark:text-white">{sonnetTokens.toLocaleString()}</div>
-              <div className="text-xs text-slate-500">Sonnet Tokens</div>
+              <div className="text-lg font-bold text-slate-900 dark:text-white">{mainTokens.toLocaleString()}</div>
+              <div className="text-xs text-slate-500">ChatGPT Tokens</div>
             </div>
             <div className="text-center">
-              <div className={`text-lg font-bold ${haikuPct >= 50 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-900 dark:text-white"}`}>
-                {haikuTokens.toLocaleString()}
+              <div className={`text-lg font-bold ${miniPct >= 50 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-900 dark:text-white"}`}>
+                {miniTokens.toLocaleString()}
               </div>
-              <div className="text-xs text-slate-500">Haiku Tokens ({haikuPct}%)</div>
+              <div className="text-xs text-slate-500">Mini Tokens ({miniPct}%)</div>
             </div>
             <div className="text-center">
               <div className="text-lg font-bold text-slate-900 dark:text-white">${totalCost.toFixed(4)}</div>
@@ -406,17 +403,16 @@ export function AdminUserDetailClient({ userId, profile, projects, invoices, mem
             <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
               <div
                 className="h-full bg-emerald-500 rounded-full"
-                style={{ width: `${haikuPct}%` }}
+                style={{ width: `${miniPct}%` }}
               />
             </div>
           )}
           <div className="flex justify-between text-xs text-slate-400 mt-1">
-            <span>Sonnet ({100 - haikuPct}%)</span>
-            <span>Haiku ({haikuPct}%)</span>
+            <span>ChatGPT ({100 - miniPct}%)</span>
+            <span>Mini ({miniPct}%)</span>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-500">
-            <div>Sonnet: ${sonnetCost.toFixed(4)} <span className="text-slate-400">($3/$15 per M)</span></div>
-            <div>Haiku: ${haikuCost.toFixed(4)} <span className="text-slate-400">($0.80/$4 per M)</span></div>
+            <div>Cost estimate disabled until OpenAI pricing is configured.</div>
           </div>
         </div>
 
@@ -426,10 +422,10 @@ export function AdminUserDetailClient({ userId, profile, projects, invoices, mem
               <thead>
                 <tr className="text-left text-slate-400 border-b border-slate-100 dark:border-slate-800">
                   <th className="pb-2">Date</th>
-                  <th className="pb-2">Sonnet In</th>
-                  <th className="pb-2">Sonnet Out</th>
-                  <th className="pb-2">Haiku In</th>
-                  <th className="pb-2">Haiku Out</th>
+                  <th className="pb-2">ChatGPT In</th>
+                  <th className="pb-2">ChatGPT Out</th>
+                  <th className="pb-2">Mini In</th>
+                  <th className="pb-2">Mini Out</th>
                   <th className="pb-2">Tavily</th>
                 </tr>
               </thead>
@@ -437,10 +433,10 @@ export function AdminUserDetailClient({ userId, profile, projects, invoices, mem
                 {usage.map((u) => (
                   <tr key={u.date} className="border-b border-slate-50 dark:border-slate-800/50">
                     <td className="py-1 text-slate-600 dark:text-slate-400">{u.date}</td>
-                    <td className="py-1 text-slate-600 dark:text-slate-400">{u.claude_input_tokens.toLocaleString()}</td>
-                    <td className="py-1 text-slate-600 dark:text-slate-400">{u.claude_output_tokens.toLocaleString()}</td>
-                    <td className="py-1 text-emerald-600 dark:text-emerald-400">{(u.haiku_input_tokens ?? 0).toLocaleString()}</td>
-                    <td className="py-1 text-emerald-600 dark:text-emerald-400">{(u.haiku_output_tokens ?? 0).toLocaleString()}</td>
+                    <td className="py-1 text-slate-600 dark:text-slate-400">{u.openai_input_tokens.toLocaleString()}</td>
+                    <td className="py-1 text-slate-600 dark:text-slate-400">{u.openai_output_tokens.toLocaleString()}</td>
+                    <td className="py-1 text-emerald-600 dark:text-emerald-400">{(u.mini_input_tokens ?? 0).toLocaleString()}</td>
+                    <td className="py-1 text-emerald-600 dark:text-emerald-400">{(u.mini_output_tokens ?? 0).toLocaleString()}</td>
                     <td className="py-1 text-slate-600 dark:text-slate-400">{u.tavily_searches}</td>
                   </tr>
                 ))}
@@ -523,7 +519,7 @@ export function AdminUserDetailClient({ userId, profile, projects, invoices, mem
             <div className={`text-sm font-medium mb-3 ${diagnostics.ok ? "text-emerald-600" : "text-red-600"}`}>
               Overall: {diagnostics.ok ? "All OK" : "Issues detected"}
             </div>
-            <CheckRow label="Anthropic" result={diagnostics.checks.anthropic} />
+            <CheckRow label="OpenAI" result={diagnostics.checks.openai} />
             <CheckRow label="Evolution" result={diagnostics.checks.evolution} />
             <CheckRow label="Supabase" result={diagnostics.checks.db} />
             <CheckRow label="Webhook" result={diagnostics.checks.webhook} />

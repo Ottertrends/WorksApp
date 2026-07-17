@@ -743,8 +743,8 @@ export function ProposalsClient({ projects, initialTemplates }: Props) {
                       </div>
                       <p className="text-xs text-slate-400 pl-5">
                         {m === "strict"
-                          ? "Claude uses only the data you have uploaded — no inferred prices or invented line items."
-                          : "Add your own instructions, T&Cs, or scope for Claude to polish the document."}
+                          ? "ChatGPT uses only the data you have uploaded — no inferred prices or invented line items."
+                          : "Add your own instructions, T&Cs, or scope for ChatGPT to polish the document."}
                       </p>
                     </label>
                   ))}

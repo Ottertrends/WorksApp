@@ -37,12 +37,12 @@ interface DiagnosticResult {
   whatsapp_connected: boolean;
   instance_name: string;
   checks: {
-    anthropic: CheckResult;
+    openai: CheckResult;
     evolution: CheckResult;
     db: CheckResult;
     webhook: CheckResult;
   };
-  /** Tips when Claude works but WhatsApp bot does not */
+  /** Tips when ChatGPT works but WhatsApp bot does not */
   whatsapp_hints?: string[];
 }
 
@@ -204,7 +204,7 @@ export function BotDiagnostics() {
 
       {result && (
         <div className="rounded-lg border border-slate-200 divide-y divide-slate-100">
-          <StatusRow label="Anthropic API (Claude)" result={result.checks.anthropic} />
+          <StatusRow label="OpenAI API (ChatGPT)" result={result.checks.openai} />
           <StatusRow label="Evolution API (WhatsApp)" result={result.checks.evolution} />
           <StatusRow label="Supabase Database" result={result.checks.db} />
           <StatusRow label="Webhook URL" result={result.checks.webhook} />
@@ -220,8 +220,8 @@ export function BotDiagnostics() {
             ))}
           </ul>
           <p className="mt-3 text-xs text-sky-800/80">
-            If <strong>Test Claude Agent</strong> below returns a reply but WhatsApp stays silent,
-            the problem is webhook routing or self-chat rules — not the Claude API.
+            If <strong>Test ChatGPT Agent</strong> below returns a reply but WhatsApp stays silent,
+            the problem is webhook routing or self-chat rules — not the OpenAI API.
           </p>
         </div>
       ) : null}
@@ -251,9 +251,9 @@ export function BotDiagnostics() {
 
       {/* Test bot (chat without WhatsApp) */}
       <div className="flex flex-col gap-2">
-        <div className="text-sm font-medium text-slate-700 dark:text-slate-200">Test Claude Agent</div>
+        <div className="text-sm font-medium text-slate-700 dark:text-slate-200">Test ChatGPT Agent</div>
         <div className="text-xs text-slate-500">
-          Send a message directly to the AI agent to verify Claude is working, without needing a
+          Send a message directly to the AI agent to verify ChatGPT is working, without needing a
           WhatsApp message.
         </div>
         <div className="flex gap-2">

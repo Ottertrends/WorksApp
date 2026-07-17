@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { verifyAdminToken } from "@/lib/admin/auth";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { cookies } from "next/headers";
 
-export async function GET(_req: NextRequest) {
+export async function GET() {
   const cookieStore = await cookies();
   const token = cookieStore.get("admin_token")?.value;
   if (!token || !(await verifyAdminToken(token))) {
@@ -30,7 +30,7 @@ export async function GET(_req: NextRequest) {
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   const { data: usageData } = await admin
     .from("api_usage")
-    .select("user_id, claude_input_tokens, claude_output_tokens, tavily_searches")
+    .select("user_id, openai_input_tokens, openai_output_tokens, tavily_searches")
     .gte("date", thirtyDaysAgo.toISOString().slice(0, 10));
 
   const projectCountMap: Record<string, number> = {};
@@ -41,8 +41,8 @@ export async function GET(_req: NextRequest) {
   const usageMap: Record<string, { input: number; output: number; tavily: number }> = {};
   for (const u of usageData ?? []) {
     if (!usageMap[u.user_id]) usageMap[u.user_id] = { input: 0, output: 0, tavily: 0 };
-    usageMap[u.user_id].input += u.claude_input_tokens;
-    usageMap[u.user_id].output += u.claude_output_tokens;
+    usageMap[u.user_id].input += u.openai_input_tokens;
+    usageMap[u.user_id].output += u.openai_output_tokens;
     usageMap[u.user_id].tavily += u.tavily_searches;
   }
 

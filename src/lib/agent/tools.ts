@@ -1,6 +1,13 @@
-import type { Tool } from "@anthropic-ai/sdk/resources/messages";
+type JsonSchema = Record<string, unknown>;
 
-export const CONTRACTOR_TOOLS: Tool[] = [
+export type ContractorTool = {
+  name: string;
+  description: string;
+  input_schema: JsonSchema;
+  cache_control?: { type: "ephemeral" };
+};
+
+export const CONTRACTOR_TOOLS: ContractorTool[] = [
   // ── Projects ────────────────────────────────────────────────────────────────
   {
     name: "create_project",
@@ -358,7 +365,7 @@ export const CONTRACTOR_TOOLS: Tool[] = [
   {
     name: "generate_proposal",
     description:
-      "Generate a professional proposal/quote PDF for a project using AI. Fetches all project data (notes, media, invoices), generates structured content with Claude, and saves it to the proposals section. Use when contractor asks to generate a proposal, formal quote, or cotización. Call list_projects first to get the project_id.",
+      "Generate a professional proposal/quote PDF for a project using AI. Fetches all project data (notes, media, invoices), generates structured content with ChatGPT, and saves it to the proposals section. Use when contractor asks to generate a proposal, formal quote, or cotización. Call list_projects first to get the project_id.",
     input_schema: {
       type: "object",
       properties: {

@@ -12,6 +12,7 @@ export interface Profile {
   company_name: string;
   email: string;
   phone: string;
+  phone_e164?: string | null;
   quotes_per_month: QuotesPerMonth | null;
   business_areas: string[] | null;
   services: string[] | null;
@@ -152,6 +153,9 @@ export interface MessageLog {
   content: string;
   message_type: MessageType;
   whatsapp_message_id: string | null;
+  sender_phone_e164?: string | null;
+  recipient_phone_e164?: string | null;
+  provider?: string | null;
   processed: boolean;
   created_at: string;
 }

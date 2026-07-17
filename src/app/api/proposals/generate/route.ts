@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { DEFAULT_ANTHROPIC_MODEL } from "@/lib/agent/model";
+import { DEFAULT_OPENAI_MODEL } from "@/lib/agent/model";
 import type { ProposalData, ContentBlock, ProposalDesign } from "@/lib/types/proposals";
 
 export async function POST(request: Request) {
@@ -210,23 +210,20 @@ Return ONLY valid JSON with exactly these fields, no markdown, no explanation:
   "validUntil": "${validUntilDate.toLocaleDateString("en-US")}"
 }`;
 
-    const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+    const apiKey = process.env.OPENAI_API_KEY?.trim();
     if (!apiKey)
-      return NextResponse.json({ error: "ANTHROPIC_API_KEY not set" }, { status: 500 });
+      return NextResponse.json({ error: "OPENAI_API_KEY not set" }, { status: 500 });
 
-    const model = process.env.ANTHROPIC_MODEL?.trim() || DEFAULT_ANTHROPIC_MODEL;
-    const client = new Anthropic({ apiKey });
+    const model = process.env.OPENAI_MODEL?.trim() || DEFAULT_OPENAI_MODEL;
+    const client = new OpenAI({ apiKey });
 
-    const response = await client.messages.create({
+    const response = await client.chat.completions.create({
       model,
-      max_tokens: 1500,
+      max_completion_tokens: 1500,
       messages: [{ role: "user", content: prompt }],
     });
 
-    const text = response.content
-      .filter((b): b is Anthropic.TextBlock => b.type === "text")
-      .map((b) => b.text)
-      .join("");
+    const text = response.choices[0]?.message.content ?? "";
 
     let proposal: ProposalData;
     try {
@@ -237,7 +234,7 @@ Return ONLY valid JSON with exactly these fields, no markdown, no explanation:
       proposal = JSON.parse(cleaned) as ProposalData;
     } catch {
       return NextResponse.json(
-        { error: "Claude returned invalid JSON", raw: text.slice(0, 500) },
+        { error: "ChatGPT returned invalid JSON", raw: text.slice(0, 500) },
         { status: 500 },
       );
     }

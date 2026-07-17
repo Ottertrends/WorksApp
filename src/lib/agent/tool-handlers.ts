@@ -1,8 +1,8 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { syncDraftFromProject } from "@/lib/invoice/sync-draft";
 import { syncToStripe, finalizeStripeInvoice } from "@/lib/invoice/sync-stripe";
-import { DEFAULT_ANTHROPIC_MODEL } from "@/lib/agent/model";
+import { DEFAULT_OPENAI_MODEL } from "@/lib/agent/model";
 import { isPremium, maxProjects, maxMonthlySearches } from "@/lib/billing/access";
 import { getStripe } from "@/lib/stripe";
 import type { ProjectStatus } from "@/lib/types/database";
@@ -591,7 +591,7 @@ export async function executeTool(
       const apiKey = process.env.TAVILY_API_KEY?.trim();
       if (!apiKey) return jsonResult({ error: "Web search is not configured (missing TAVILY_API_KEY)" });
 
-      // Amazon Associates affiliate tag — injected into amazon.com URLs before returning to Claude
+      // Amazon Associates affiliate tag injected into amazon.com URLs before returning to the model.
       const amazonTag = process.env.AMAZON_AFFILIATE_TAG?.trim() ?? null;
       const injectAmazonTag = (url: string): string => {
         if (!amazonTag || !url.includes("amazon.com")) return url;
@@ -670,7 +670,7 @@ export async function executeTool(
           answer: data.answer ?? null,
           results,
           note: zip ? `Search localized to zip/area: ${zip}` : "General search (no zip on profile)",
-          amazon_affiliate_active: !!amazonTag,  // signals Claude to add disclosure when sharing Amazon links
+          amazon_affiliate_active: !!amazonTag,  // signals the model to add disclosure when sharing Amazon links
         });
       } catch (fetchErr) {
         const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
@@ -1014,20 +1014,17 @@ ${modeBlock}
 Return ONLY valid JSON, no markdown:
 {"title":"...","clientName":"...","scope":"...","lineItems":[{"description":"...","qty":1,"unitPrice":0}],"terms":"...","validUntil":"${validUntilStr}"}`;
 
-      const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
-      if (!apiKey) return jsonResult({ error: "ANTHROPIC_API_KEY not set" });
+      const apiKey = process.env.OPENAI_API_KEY?.trim();
+      if (!apiKey) return jsonResult({ error: "OPENAI_API_KEY not set" });
 
-      const anthropic = new Anthropic({ apiKey });
-      const aiResponse = await anthropic.messages.create({
-        model: process.env.ANTHROPIC_MODEL?.trim() || DEFAULT_ANTHROPIC_MODEL,
-        max_tokens: 1500,
+      const openai = new OpenAI({ apiKey });
+      const aiResponse = await openai.chat.completions.create({
+        model: process.env.OPENAI_MODEL?.trim() || DEFAULT_OPENAI_MODEL,
+        max_completion_tokens: 1500,
         messages: [{ role: "user", content: prompt }],
       });
 
-      const rawText = aiResponse.content
-        .filter((b): b is Anthropic.TextBlock => b.type === "text")
-        .map((b) => b.text)
-        .join("");
+      const rawText = aiResponse.choices[0]?.message.content ?? "";
 
       let proposal: { title: string; clientName: string; scope: string; lineItems: ProposalLineItem[]; terms: string; validUntil: string };
       try {

@@ -1,15 +1,9 @@
-import Anthropic from "@anthropic-ai/sdk";
-import type {
-  ContentBlock,
-  MessageParam,
-  TextBlock,
-  TextBlockParam,
-  ToolUseBlock,
-} from "@anthropic-ai/sdk/resources/messages";
+import OpenAI from "openai";
+import type { ChatCompletionMessageParam, ChatCompletionTool } from "openai/resources/chat/completions";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { executeTool } from "@/lib/agent/tool-handlers";
-import { DEFAULT_ANTHROPIC_MODEL, HAIKU_MODEL } from "@/lib/agent/model";
+import { MINI_MODEL } from "@/lib/agent/model";
 import { routeToModel } from "@/lib/agent/model-router";
 import { buildSystemPrompt } from "@/lib/agent/types";
 import { CONTRACTOR_TOOLS } from "@/lib/agent/tools";
@@ -42,22 +36,22 @@ function formatAgentError(e: unknown): string {
 
 export type AgentRunResult = {
   reply: string;
-  /** Set when Claude/API/tools failed; `reply` may still be a safe fallback string */
+  /** Set when OpenAI/API/tools failed; `reply` may still be a safe fallback string */
   error?: string;
 };
 
 function getClient() {
-  const key = process.env.ANTHROPIC_API_KEY?.trim();
-  if (!key) throw new Error("Missing ANTHROPIC_API_KEY");
-  return new Anthropic({ apiKey: key });
+  const key = process.env.OPENAI_API_KEY?.trim();
+  if (!key) throw new Error("Missing OPENAI_API_KEY");
+  return new OpenAI({ apiKey: key });
 }
 
 function buildMessageParams(
   history: { role: "user" | "assistant"; content: string }[],
   latestUserText: string,
-): MessageParam[] {
+): ChatCompletionMessageParam[] {
   const recent = history.slice(-8);
-  const msgs: MessageParam[] = recent.map((h) => ({
+  const msgs: ChatCompletionMessageParam[] = recent.map((h) => ({
     role: h.role,
     content: h.content,
   }));
@@ -65,16 +59,17 @@ function buildMessageParams(
   return msgs;
 }
 
-function extractTextFromResponse(content: ContentBlock[]): string {
-  const parts = content
-    .filter((b): b is TextBlock => b.type === "text")
-    .map((b) => b.text);
-  return parts.join("\n").trim();
+function toOpenAITools(): ChatCompletionTool[] {
+  return CONTRACTOR_TOOLS.map((tool) => ({
+    type: "function",
+    function: {
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.input_schema,
+    },
+  }));
 }
 
-/**
- * Run Claude with tools; returns assistant text to send on WhatsApp.
- */
 export async function processContractorMessage(
   userId: string,
   messageText: string,
@@ -85,15 +80,14 @@ export async function processContractorMessage(
 
   try {
     const client = getClient();
-
-    // Route to Haiku (simple) or Sonnet (complex) based on message content
     const { model, method: routeMethod } = await routeToModel(messageText, client);
-    console.log(
-      "[contractor-agent] start",
-      { model: model === HAIKU_MODEL ? "haiku" : "sonnet", routeMethod, userId: userId.slice(0, 8), historyLen: history.length },
-    );
+    console.log("[contractor-agent] start", {
+      model: model === MINI_MODEL ? "mini" : "chatgpt",
+      routeMethod,
+      userId: userId.slice(0, 8),
+      historyLen: history.length,
+    });
 
-    // Fetch this contractor's long-term memory + location context
     const admin = createSupabaseAdminClient();
     const [{ data: memRow }, { data: profRow }] = await Promise.all([
       admin.from("agent_memory").select("memory_text, updated_at").eq("user_id", userId).maybeSingle(),
@@ -101,8 +95,8 @@ export async function processContractorMessage(
     ]);
 
     const memoryBlock = memRow?.memory_text?.trim()
-      ? `\n\n━━━ YOUR MEMORY ABOUT THIS CONTRACTOR ━━━\n${memRow.memory_text}\n(Last updated: ${memRow.updated_at ? new Date(memRow.updated_at).toLocaleDateString() : "unknown"})\nWhen you learn new important details, call update_memory with the full updated memory block.`
-      : `\n\n━━━ CONTRACTOR MEMORY ━━━\n(No notes yet — memory is empty. As you learn about this contractor's services, pricing, clients, and work style, call update_memory to start building their profile.)`;
+      ? `\n\nYOUR MEMORY ABOUT THIS CONTRACTOR\n${memRow.memory_text}\n(Last updated: ${memRow.updated_at ? new Date(memRow.updated_at).toLocaleDateString() : "unknown"})\nWhen you learn new important details, call update_memory with the full updated memory block.`
+      : `\n\nCONTRACTOR MEMORY\n(No notes yet. As you learn about this contractor's services, pricing, clients, and work style, call update_memory to start building their profile.)`;
 
     const systemWithMemory = buildSystemPrompt({
       zip: profRow?.zip,
@@ -111,126 +105,111 @@ export async function processContractorMessage(
       stripeConnected: !!(profRow?.stripe_connect_account_id && profRow?.stripe_connect_charges_enabled),
     }) + memoryBlock;
 
-    // Monthly token cap check (6.5M tokens)
     const MONTHLY_TOKEN_CAP = 6_500_000;
     const monthStart = new Date();
     monthStart.setDate(1);
     monthStart.setHours(0, 0, 0, 0);
     const { data: monthRows } = await admin
       .from("api_usage")
-      .select("claude_input_tokens, claude_output_tokens")
+      .select("openai_input_tokens, openai_output_tokens")
       .eq("user_id", userId)
       .gte("date", monthStart.toISOString().slice(0, 10));
     const monthlyTokens = (monthRows ?? []).reduce(
-      (sum, r) => sum + (r.claude_input_tokens ?? 0) + (r.claude_output_tokens ?? 0),
+      (sum, r) => sum + (r.openai_input_tokens ?? 0) + (r.openai_output_tokens ?? 0),
       0,
     );
     if (monthlyTokens >= MONTHLY_TOKEN_CAP) {
       return {
-        reply: "⚠️ You've reached your monthly usage limit (6.5M tokens). Your limit resets on the 1st of next month.",
+        reply: "You've reached your monthly usage limit (6.5M tokens). Your limit resets on the 1st of next month.",
         error: `Monthly token cap exceeded: ${monthlyTokens.toLocaleString()} / ${MONTHLY_TOKEN_CAP.toLocaleString()}`,
       };
     }
 
-    // System prompt with prompt caching (saves ~80% on cached tokens)
-    const systemBlock: TextBlockParam = {
-      type: "text",
-      text: systemWithMemory,
-      cache_control: { type: "ephemeral" },
-    };
-
-    let messages = buildMessageParams(history, messageText);
+    const messages: ChatCompletionMessageParam[] = [
+      { role: "system", content: systemWithMemory },
+      ...buildMessageParams(history, messageText),
+    ];
+    const tools = toOpenAITools();
     const maxLoops = 15;
 
     for (let i = 0; i < maxLoops; i++) {
-      const response = await client.messages.create({
+      const response = await client.chat.completions.create({
         model,
-        max_tokens: 2048,
-        system: [systemBlock],
-        tools: CONTRACTOR_TOOLS,
+        max_completion_tokens: 2048,
+        tools,
         messages,
       });
+      const message = response.choices[0]?.message;
 
-      // Track token usage — split by model tier
       if (response.usage) {
         const today = new Date().toISOString().slice(0, 10);
-        const isHaiku = model === HAIKU_MODEL;
+        const isMini = model === MINI_MODEL;
         void Promise.resolve(
           admin.rpc("increment_usage", {
             p_user_id: userId,
             p_date: today,
-            p_input:        isHaiku ? 0 : (response.usage.input_tokens ?? 0),
-            p_output:       isHaiku ? 0 : (response.usage.output_tokens ?? 0),
-            p_tavily:       0,
+            p_input: isMini ? 0 : (response.usage.prompt_tokens ?? 0),
+            p_output: isMini ? 0 : (response.usage.completion_tokens ?? 0),
+            p_tavily: 0,
             p_web_messages: 0,
-            p_haiku_input:  isHaiku ? (response.usage.input_tokens ?? 0) : 0,
-            p_haiku_output: isHaiku ? (response.usage.output_tokens ?? 0) : 0,
-          })
+            p_mini_input: isMini ? (response.usage.prompt_tokens ?? 0) : 0,
+            p_mini_output: isMini ? (response.usage.completion_tokens ?? 0) : 0,
+          }),
         ).catch((err: unknown) => console.warn("[contractor-agent] usage tracking failed:", err));
       }
 
-      if (response.stop_reason === "end_turn") {
-        const text = extractTextFromResponse(response.content);
-        return { reply: text || "✅ Done." };
+      if (!message) {
+        return { reply: fallback, error: "OpenAI returned no message" };
       }
 
-      if (response.stop_reason === "tool_use") {
-        const toolUses = response.content.filter(
-          (b): b is ToolUseBlock => b.type === "tool_use",
-        );
-
-        messages = [
-          ...messages,
-          { role: "assistant", content: response.content },
-          {
-            role: "user",
-            content: await Promise.all(
-              toolUses.map(async (tu) => {
-                const input =
-                  typeof tu.input === "object" && tu.input !== null
-                    ? (tu.input as Record<string, unknown>)
-                    : {};
-                try {
-                  const result = await executeTool(userId, tu.name, input);
-                  return {
-                    type: "tool_result" as const,
-                    tool_use_id: tu.id,
-                    content: result,
-                  };
-                } catch (toolErr) {
-                  const msg = formatAgentError(toolErr);
-                  console.error(
-                    "[contractor-agent] tool error",
-                    tu.name,
-                    msg,
-                  );
-                  return {
-                    type: "tool_result" as const,
-                    tool_use_id: tu.id,
-                    content: `Tool error: ${msg}`,
-                  };
-                }
-              }),
-            ),
-          },
-        ];
-        continue;
+      if (!message.tool_calls?.length) {
+        const text = message.content?.trim() ?? "";
+        return { reply: text || "Done." };
       }
 
-      const text = extractTextFromResponse(response.content);
-      if (text) return { reply: text };
-      return {
-        reply: fallback,
-        error: `Unexpected stop_reason=${response.stop_reason}`,
-      };
+      messages.push(message);
+      const toolResults = await Promise.all(
+        message.tool_calls.map(async (toolCall) => {
+          if (toolCall.type !== "function") {
+            return {
+              role: "tool" as const,
+              tool_call_id: toolCall.id,
+              content: "Unsupported tool call type.",
+            };
+          }
+
+          let input: Record<string, unknown> = {};
+          try {
+            input = JSON.parse(toolCall.function.arguments || "{}") as Record<string, unknown>;
+          } catch {
+            input = {};
+          }
+
+          try {
+            const result = await executeTool(userId, toolCall.function.name, input);
+            return {
+              role: "tool" as const,
+              tool_call_id: toolCall.id,
+              content: result,
+            };
+          } catch (toolErr) {
+            const msg = formatAgentError(toolErr);
+            console.error("[contractor-agent] tool error", toolCall.function.name, msg);
+            return {
+              role: "tool" as const,
+              tool_call_id: toolCall.id,
+              content: `Tool error: ${msg}`,
+            };
+          }
+        }),
+      );
+      messages.push(...toolResults);
     }
 
-    // Exceeded tool loop limit — ask Claude to summarize what was done and what's still pending
     try {
-      const summaryResp = await client.messages.create({
+      const summaryResp = await client.chat.completions.create({
         model,
-        max_tokens: 512,
-        system: [systemBlock],
+        max_completion_tokens: 512,
         messages: [
           ...messages,
           {
@@ -239,14 +218,14 @@ export async function processContractorMessage(
           },
         ],
       });
-      const summaryText = extractTextFromResponse(summaryResp.content);
+      const summaryText = summaryResp.choices[0]?.message.content?.trim() ?? "";
       if (summaryText) return { reply: summaryText, error: "Exceeded max tool loops" };
     } catch {
       // ignore summary error, fall through
     }
 
     return {
-      reply: "I ran out of steps before finishing your request. Here's what I was working on — please reply to continue and I'll pick up where I left off.",
+      reply: "I ran out of steps before finishing your request. Here's what I was working on. Please reply to continue and I'll pick up where I left off.",
       error: "Exceeded max tool loops",
     };
   } catch (e) {

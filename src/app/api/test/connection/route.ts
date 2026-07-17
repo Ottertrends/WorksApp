@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 
 import { createEvolutionClient } from "@/lib/evolution/client";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -8,7 +8,7 @@ import {
   evolutionInstanceName,
   evolutionSecondaryInstanceName,
 } from "@/lib/whatsapp/instance-name";
-import { DEFAULT_ANTHROPIC_MODEL } from "@/lib/agent/model";
+import { DEFAULT_OPENAI_MODEL } from "@/lib/agent/model";
 
 export const dynamic = "force-dynamic";
 
@@ -18,27 +18,23 @@ interface CheckResult {
   detail?: string;
 }
 
-async function checkAnthropic(): Promise<CheckResult> {
-  const key = process.env.ANTHROPIC_API_KEY?.trim();
-  if (!key) return { ok: false, message: "ANTHROPIC_API_KEY not set" };
+async function checkOpenAI(): Promise<CheckResult> {
+  const key = process.env.OPENAI_API_KEY?.trim();
+  if (!key) return { ok: false, message: "OPENAI_API_KEY not set" };
   try {
-    const client = new Anthropic({ apiKey: key });
-    const model = process.env.ANTHROPIC_MODEL?.trim() || DEFAULT_ANTHROPIC_MODEL;
-    const res = await client.messages.create({
+    const client = new OpenAI({ apiKey: key });
+    const model = process.env.OPENAI_MODEL?.trim() || DEFAULT_OPENAI_MODEL;
+    const res = await client.chat.completions.create({
       model,
-      max_tokens: 10,
+      max_completion_tokens: 10,
       messages: [{ role: "user", content: "Reply with just: OK" }],
     });
-    const text = res.content
-      .filter((b): b is Anthropic.TextBlock => b.type === "text")
-      .map((b) => b.text)
-      .join("")
-      .trim();
-    return { ok: true, message: `Claude responded (model: ${model})`, detail: text };
+    const text = res.choices[0]?.message.content?.trim() ?? "";
+    return { ok: true, message: `ChatGPT responded (model: ${model})`, detail: text };
   } catch (e) {
     return {
       ok: false,
-      message: "Anthropic API call failed",
+      message: "OpenAI API call failed",
       detail: e instanceof Error ? e.message : String(e),
     };
   }
@@ -106,7 +102,7 @@ function checkWebhookUrl(): CheckResult {
   return { ok: true, message: `Webhook URL: ${webhookUrl}` };
 }
 
-/** User-facing reminders when Claude is OK but WhatsApp bot seems silent */
+/** User-facing reminders when ChatGPT is OK but WhatsApp bot seems silent */
 function buildWhatsappHints(): string[] {
   const hints: string[] = [];
   if (process.env.EVOLUTION_WEBHOOK_SECRET?.trim()) {
@@ -148,8 +144,8 @@ export async function GET() {
     (profile?.whatsapp_secondary_instance_id as string | null) ??
     evolutionSecondaryInstanceName(user.id);
 
-  const [anthropic, evPrimary, evSecondary, db, webhook] = await Promise.all([
-    checkAnthropic(),
+  const [openai, evPrimary, evSecondary, db, webhook] = await Promise.all([
+    checkOpenAI(),
     checkEvolution(primaryName),
     checkEvolution(secondaryName),
     checkSupabase(user.id),
@@ -167,7 +163,7 @@ export async function GET() {
         ? { ...evPrimary, message: `Primary (${primaryName}): ${evPrimary.message}` }
         : { ...evSecondary, message: `Secondary (${secondaryName}): ${evSecondary.message}` };
 
-  const allOk = anthropic.ok && evolution.ok && db.ok && webhook.ok;
+  const allOk = openai.ok && evolution.ok && db.ok && webhook.ok;
 
   return NextResponse.json({
     ok: allOk,
@@ -175,7 +171,7 @@ export async function GET() {
     whatsapp_secondary_connected: !!profile?.whatsapp_secondary_connected,
     instance_name: primaryName,
     secondary_instance_name: secondaryName,
-    checks: { anthropic, evolution, db, webhook },
+    checks: { openai, evolution, db, webhook },
     whatsapp_hints: buildWhatsappHints(),
   });
 }
