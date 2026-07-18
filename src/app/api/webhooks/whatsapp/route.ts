@@ -111,7 +111,7 @@ function getInboundContent(data: TelnyxPayload | null): {
 function formatWhatsAppReply(value: string): string {
   return value.replace(
     /\[([^\]]+)]\((https?:\/\/[^)\s]+)\)/g,
-    (_match, label: string, url: string) => `${label}:\n${url}`,
+    (_match, label: string, url: string) => label.trim() === url ? url : `${label}:\n${url}`,
   );
 }
 

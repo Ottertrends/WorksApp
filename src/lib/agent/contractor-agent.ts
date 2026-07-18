@@ -253,11 +253,13 @@ export async function processContractorMessage(
             const result = await executeTool(userId, toolCall.function.name, input);
             try {
               const parsed = JSON.parse(result) as { ok?: boolean; error?: unknown };
-              if (parsed.ok === true && !parsed.error) successfulTools.add(toolCall.function.name);
+              if (parsed.ok === true && !parsed.error) {
+                successfulTools.add(toolCall.function.name);
+                extractHttpUrls(result).forEach((url) => verifiedUrls.add(url));
+              }
             } catch {
               // Non-JSON tool output is not considered a verified mutation.
             }
-            extractHttpUrls(result).forEach((url) => verifiedUrls.add(url));
             return {
               role: "tool" as const,
               tool_call_id: toolCall.id,

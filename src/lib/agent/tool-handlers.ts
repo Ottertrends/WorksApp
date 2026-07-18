@@ -1262,44 +1262,97 @@ Return ONLY valid JSON, no markdown:
       if (!inv) return jsonResult({ error: "Invoice not found" });
       if (!inv.stripe_invoice_id) return jsonResult({ error: "This invoice has no Stripe invoice linked. Call finalize_invoice first." });
       if (inv.status === "draft") return jsonResult({ error: "Invoice must be finalized before sending. Call finalize_invoice first." });
-      // Guard: already sent — do NOT send again (avoids duplicate emails on retry)
-      if (inv.status === "sent") return jsonResult({ ok: true, already_sent: true, message: "Invoice was already sent to the client via Stripe. No duplicate email sent." });
       if (!sendProf?.stripe_connect_account_id) return jsonResult({ error: "Stripe Connect is not set up. Go to Settings → Integrations to connect Stripe." });
 
       try {
-        await getStripe().invoices.sendInvoice(
-          inv.stripe_invoice_id,
-          undefined,
-          { stripeAccount: sendProf.stripe_connect_account_id },
-        );
-        await admin
+        const stripeOptions = { stripeAccount: sendProf.stripe_connect_account_id };
+        // Avoid a duplicate email on retry, but still retrieve Stripe's current URL.
+        const stripeInvoice = inv.status === "sent"
+          ? await getStripe().invoices.retrieve(inv.stripe_invoice_id, undefined, stripeOptions)
+          : await getStripe().invoices.sendInvoice(inv.stripe_invoice_id, undefined, stripeOptions);
+        const hostedUrl = stripeInvoice.hosted_invoice_url;
+        if (!hostedUrl) return jsonResult({ error: "Stripe sent the invoice but did not return a hosted payment URL." });
+
+        const { error: updateError } = await admin
           .from("invoices")
-          .update({ status: "sent", updated_at: new Date().toISOString() })
+          .update({
+            status: "sent",
+            stripe_hosted_url: hostedUrl,
+            stripe_invoice_number: stripeInvoice.number,
+            updated_at: new Date().toISOString(),
+          })
           .eq("id", invoiceId);
+        if (updateError) return jsonResult({ error: `Stripe sent the invoice but WorksApp could not save the result: ${updateError.message}` });
+
+        return jsonResult({
+          ok: true,
+          verified: true,
+          already_sent: inv.status === "sent",
+          status: stripeInvoice.status,
+          stripe_invoice_id: stripeInvoice.id,
+          stripe_invoice_number: stripeInvoice.number,
+          hosted_url: hostedUrl,
+          message: inv.status === "sent"
+            ? "Invoice was already sent. Stripe's current payment URL was verified."
+            : "Invoice sent to client via Stripe email.",
+        });
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Stripe error";
         return jsonResult({ error: `Failed to send via Stripe: ${msg}` });
       }
-
-      return jsonResult({ ok: true, message: "Invoice sent to client via Stripe email." });
     }
 
     case "get_invoice_payment_link": {
       const invoiceId = String(input.invoice_id ?? "").trim();
       if (!invoiceId) return jsonResult({ error: "invoice_id is required" });
 
-      const { data: inv } = await admin
-        .from("invoices")
-        .select("id, status, stripe_hosted_url, stripe_payment_link_url, user_id")
-        .eq("id", invoiceId)
-        .eq("user_id", userId)
-        .single();
+      const [{ data: inv }, { data: linkProf }] = await Promise.all([
+        admin
+          .from("invoices")
+          .select("id, status, stripe_invoice_id, stripe_hosted_url, stripe_payment_link_url, user_id")
+          .eq("id", invoiceId)
+          .eq("user_id", userId)
+          .single(),
+        admin
+          .from("profiles")
+          .select("stripe_connect_account_id")
+          .eq("id", userId)
+          .single(),
+      ]);
 
       if (!inv) return jsonResult({ error: "Invoice not found" });
-      const url = inv.stripe_hosted_url || inv.stripe_payment_link_url;
+      let url = inv.stripe_hosted_url || inv.stripe_payment_link_url;
+
+      if (inv.stripe_invoice_id && linkProf?.stripe_connect_account_id) {
+        try {
+          const stripeInvoice = await getStripe().invoices.retrieve(
+            inv.stripe_invoice_id,
+            undefined,
+            { stripeAccount: linkProf.stripe_connect_account_id },
+          );
+          if (!stripeInvoice.hosted_invoice_url) {
+            return jsonResult({ error: "Stripe has not generated a hosted payment URL for this invoice." });
+          }
+          url = stripeInvoice.hosted_invoice_url;
+          const { error: updateError } = await admin
+            .from("invoices")
+            .update({
+              stripe_hosted_url: url,
+              stripe_invoice_number: stripeInvoice.number,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", invoiceId)
+            .eq("user_id", userId);
+          if (updateError) return jsonResult({ error: `Could not save Stripe's verified payment URL: ${updateError.message}` });
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : "Stripe error";
+          return jsonResult({ error: `Could not verify the payment URL with Stripe: ${msg}` });
+        }
+      }
+
       if (!url) return jsonResult({ error: "No payment link available. Finalize the invoice with Stripe connected to generate one." });
 
-      return jsonResult({ ok: true, payment_link_url: url });
+      return jsonResult({ ok: true, verified: true, payment_link_url: url });
     }
 
     case "share_proposal": {
