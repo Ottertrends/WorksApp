@@ -1169,24 +1169,7 @@ Return ONLY valid JSON, no markdown:
         .single();
 
       if (!inv) return jsonResult({ error: "Invoice not found" });
-      // If already open/sent/paid — return existing state so the bot doesn't re-finalize
-      if (inv.status !== "draft") {
-        const { data: existingInv } = await admin
-          .from("invoices")
-          .select("stripe_hosted_url, stripe_invoice_number, status")
-          .eq("id", invoiceId)
-          .single();
-        return jsonResult({
-          ok: true,
-          already_finalized: true,
-          status: existingInv?.status ?? inv.status,
-          hosted_url: existingInv?.stripe_hosted_url ?? null,
-          stripe_invoice_number: existingInv?.stripe_invoice_number ?? null,
-          message: `Invoice is already ${inv.status} — no changes made.`,
-        });
-      }
 
-      // Check if Stripe Connect is set up for this user
       const { data: prof } = await admin
         .from("profiles")
         .select("stripe_connect_account_id, stripe_connect_charges_enabled")
@@ -1195,13 +1178,36 @@ Return ONLY valid JSON, no markdown:
 
       const stripeConnected = !!(prof?.stripe_connect_account_id && prof?.stripe_connect_charges_enabled);
 
+      // A local invoice can be open without a Stripe object if it was finalized
+      // before Stripe was connected. Sync it now instead of reporting Stripe success.
+      if (inv.status !== "draft" && (inv.stripe_invoice_id || !stripeConnected)) {
+        const { data: existingInv } = await admin
+          .from("invoices")
+          .select("stripe_invoice_id, stripe_hosted_url, stripe_invoice_number, status")
+          .eq("id", invoiceId)
+          .eq("user_id", userId)
+          .single();
+        return jsonResult({
+          ok: true,
+          already_finalized: true,
+          status: existingInv?.status ?? inv.status,
+          stripe_connected: stripeConnected,
+          stripe_invoice_id: existingInv?.stripe_invoice_id ?? null,
+          hosted_url: existingInv?.stripe_hosted_url ?? null,
+          stripe_invoice_number: existingInv?.stripe_invoice_number ?? null,
+          message: `Invoice is already ${inv.status} — no changes made.`,
+        });
+      }
+
       let hostedUrl: string | null = null;
       let stripeInvoiceNumber: string | null = null;
+      let stripeInvoiceId: string | null = inv.stripe_invoice_id;
 
       if (stripeConnected) {
         try {
           // Sync line items to Stripe (creates/updates the Stripe draft invoice)
-          await syncToStripe(invoiceId, userId, admin);
+          const syncResult = await syncToStripe(invoiceId, userId, admin);
+          stripeInvoiceId = syncResult.stripe_invoice_id;
           // Finalize: draft → open, generates hosted_invoice_url
           const result = await finalizeStripeInvoice(invoiceId, userId, admin);
           hostedUrl = result.hostedUrl;
@@ -1213,17 +1219,34 @@ Return ONLY valid JSON, no markdown:
       }
 
       // Mark as open in our DB (hosted_url already saved inside finalizeStripeInvoice if connected)
-      await admin
+      const { error: statusError } = await admin
         .from("invoices")
         .update({ status: "open", updated_at: new Date().toISOString() })
-        .eq("id", invoiceId);
+        .eq("id", invoiceId)
+        .eq("user_id", userId);
+      if (statusError) return jsonResult({ error: `Failed to persist invoice status: ${statusError.message}` });
+
+      const { data: verified, error: verifyError } = await admin
+        .from("invoices")
+        .select("status, stripe_invoice_id, stripe_invoice_number, stripe_hosted_url")
+        .eq("id", invoiceId)
+        .eq("user_id", userId)
+        .single();
+      if (verifyError || !verified) {
+        return jsonResult({ error: `Could not verify finalized invoice: ${verifyError?.message ?? "not found"}` });
+      }
+      if (stripeConnected && (!verified.stripe_invoice_id || !verified.stripe_hosted_url)) {
+        return jsonResult({ error: "Stripe finalization was not persisted with a hosted payment URL." });
+      }
 
       return jsonResult({
         ok: true,
-        status: "open",
+        verified: true,
+        status: verified.status,
         stripe_connected: stripeConnected,
-        hosted_url: hostedUrl,
-        stripe_invoice_number: stripeInvoiceNumber,
+        stripe_invoice_id: verified.stripe_invoice_id ?? stripeInvoiceId,
+        hosted_url: verified.stripe_hosted_url ?? hostedUrl,
+        stripe_invoice_number: verified.stripe_invoice_number ?? stripeInvoiceNumber,
       });
     }
 

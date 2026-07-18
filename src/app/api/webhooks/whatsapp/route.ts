@@ -108,6 +108,13 @@ function getInboundContent(data: TelnyxPayload | null): {
   };
 }
 
+function formatWhatsAppReply(value: string): string {
+  return value.replace(
+    /\[([^\]]+)]\((https?:\/\/[^)\s]+)\)/g,
+    (_match, label: string, url: string) => `${label}:\n${url}`,
+  );
+}
+
 async function sendTelnyxWhatsAppText(from: string, to: string, body: string) {
   const res = await fetch("https://api.telnyx.com/v2/messages/whatsapp", {
     method: "POST",
@@ -387,7 +394,7 @@ async function handleTelnyxInbound(data: TelnyxPayload | null, raw: TelnyxWebhoo
   let reply: string;
   try {
     const agentResult = await processContractorMessage(userId, commandText, history);
-    reply = agentResult.reply;
+    reply = formatWhatsAppReply(agentResult.reply);
     if (agentResult.error) {
       await logBotEvent(admin, userId, "error", "agent-warning", from, agentResult.error.slice(0, 200));
       await logWebhookEvent({

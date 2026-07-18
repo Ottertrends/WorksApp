@@ -40,6 +40,31 @@ export type AgentRunResult = {
   error?: string;
 };
 
+const INVOICE_MUTATION_TOOLS = new Set([
+  "create_invoice_draft",
+  "finalize_invoice",
+  "send_invoice_stripe",
+  "get_invoice_payment_link",
+  "share_invoice",
+]);
+
+function extractHttpUrls(value: string): string[] {
+  return value.match(/https?:\/\/[^\s"'<>]+/g)?.map((url) => url.replace(/[),.;]+$/, "")) ?? [];
+}
+
+function claimsCompletedInvoiceAction(text: string): boolean {
+  const normalized = text.toLowerCase();
+  const completion = /\b(created|finalized|generated|shared|sent|ready|completed)\b|\bhere(?:'s| is)\b/;
+  const invoiceSubject = /\b(invoice|stripe|payment link|invoice link)\b/;
+  return completion.test(normalized) && invoiceSubject.test(normalized);
+}
+
+function claimsSharedLink(text: string): boolean {
+  const normalized = text.toLowerCase();
+  return /\b(here(?:'s| is)|generated|created|share(?:d|able)|payment link|open to pay)\b/.test(normalized)
+    && /\b(link|url|pay online|stripe invoice)\b/.test(normalized);
+}
+
 function getClient() {
   const key = process.env.OPENAI_API_KEY?.trim();
   if (!key) throw new Error("Missing OPENAI_API_KEY");
@@ -131,14 +156,20 @@ export async function processContractorMessage(
     ];
     const tools = toOpenAITools();
     const maxLoops = 15;
+    const successfulTools = new Set<string>();
+    const verifiedUrls = new Set<string>();
+    let forceToolCall = false;
+    let correctionCount = 0;
 
     for (let i = 0; i < maxLoops; i++) {
       const response = await client.chat.completions.create({
         model,
         max_completion_tokens: 2048,
         tools,
+        tool_choice: forceToolCall ? "required" : "auto",
         messages,
       });
+      forceToolCall = false;
       const message = response.choices[0]?.message;
 
       if (response.usage) {
@@ -164,6 +195,39 @@ export async function processContractorMessage(
 
       if (!message.tool_calls?.length) {
         const text = message.content?.trim() ?? "";
+        const completedClaim = claimsCompletedInvoiceAction(text);
+        const linkClaim = claimsSharedLink(text);
+        const hasInvoiceMutation = [...successfulTools].some((name) => INVOICE_MUTATION_TOOLS.has(name));
+        const hasVerifiedLink = verifiedUrls.size > 0;
+
+        if (
+          correctionCount < 2
+          && ((completedClaim && !hasInvoiceMutation) || (linkClaim && !hasVerifiedLink))
+        ) {
+          messages.push(message);
+          messages.push({
+            role: "system",
+            content:
+              "Execution guard: you claimed an invoice/Stripe action or link without verified tool output. "
+              + "Call the required tools now. Use lookup tools first if you need an invoice or project ID. "
+              + "Never invent a URL or use a placeholder link. Only report success from an ok:true tool result.",
+          });
+          correctionCount += 1;
+          forceToolCall = true;
+          continue;
+        }
+
+        if (linkClaim && !hasVerifiedLink) {
+          return {
+            reply: "I couldn't verify a real invoice link, so I haven't shared one. Please try again or open the invoice in WorksApp.",
+            error: "Blocked unverified invoice link claim",
+          };
+        }
+
+        if (hasVerifiedLink && claimsSharedLink(text) && !extractHttpUrls(text).length) {
+          return { reply: `${text}\n\n${[...verifiedUrls][0]}` };
+        }
+
         return { reply: text || "Done." };
       }
 
@@ -187,6 +251,13 @@ export async function processContractorMessage(
 
           try {
             const result = await executeTool(userId, toolCall.function.name, input);
+            try {
+              const parsed = JSON.parse(result) as { ok?: boolean; error?: unknown };
+              if (parsed.ok === true && !parsed.error) successfulTools.add(toolCall.function.name);
+            } catch {
+              // Non-JSON tool output is not considered a verified mutation.
+            }
+            extractHttpUrls(result).forEach((url) => verifiedUrls.add(url));
             return {
               role: "tool" as const,
               tool_call_id: toolCall.id,

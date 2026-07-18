@@ -226,13 +226,16 @@ export async function syncToStripe(
   // It becomes available only after finalizeInvoice() is called (see finalizeAndSendStripeInvoice).
 
   // 10. Save stripe_invoice_id to DB (hosted_url stays null until finalized)
-  await supabase
+  const { error: stripeIdUpdateError } = await supabase
     .from("invoices")
     .update({
       stripe_invoice_id: stripeInvoice.id,
       updated_at: new Date().toISOString(),
     })
     .eq("id", invoiceId);
+  if (stripeIdUpdateError) {
+    throw new Error(`Stripe invoice was created but could not be saved: ${stripeIdUpdateError.message}`);
+  }
 
   return { stripe_invoice_id: stripeInvoice.id, hosted_url: null };
 }
@@ -298,7 +301,7 @@ export async function finalizeStripeInvoice(
   }
 
   // Save hosted URL + invoice number to DB
-  await supabase
+  const { error: hostedUrlUpdateError } = await supabase
     .from("invoices")
     .update({
       stripe_hosted_url: hostedUrl,
@@ -306,6 +309,9 @@ export async function finalizeStripeInvoice(
       updated_at: new Date().toISOString(),
     })
     .eq("id", invoiceId);
+  if (hostedUrlUpdateError) {
+    throw new Error(`Stripe invoice was finalized but its URL could not be saved: ${hostedUrlUpdateError.message}`);
+  }
 
   return { hostedUrl, invoiceNumber };
 }
