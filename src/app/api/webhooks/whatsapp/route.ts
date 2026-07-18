@@ -8,10 +8,11 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 type TelnyxPhone = { phone_number?: string | null };
+type TelnyxPhoneValue = TelnyxPhone | string;
 type TelnyxPayload = {
   id?: string | null;
-  from?: TelnyxPhone | null;
-  to?: TelnyxPhone[] | null;
+  from?: TelnyxPhoneValue | null;
+  to?: TelnyxPhoneValue[] | TelnyxPhoneValue | null;
   text?: string | null;
   media?: Array<{ url?: string | null; content_type?: string | null }> | null;
 };
@@ -57,7 +58,7 @@ function getTelnyxApiKey(): string {
 async function logWebhookEvent(input: WebhookLogInput) {
   try {
     const admin = createSupabaseAdminClient();
-    await admin.from("whatsapp_webhook_events").insert({
+    const { error } = await admin.from("whatsapp_webhook_events").insert({
       provider: "telnyx",
       event_type: input.eventType ?? null,
       result: input.result,
@@ -69,9 +70,15 @@ async function logWebhookEvent(input: WebhookLogInput) {
       error: input.error ? input.error.slice(0, 1000) : null,
       raw: input.raw ?? null,
     });
+    if (error) throw error;
   } catch (e) {
     console.error("[whatsapp-webhook] Failed to write webhook diagnostic:", e);
   }
+}
+
+function phoneValue(value: TelnyxPhoneValue | null | undefined): string | null {
+  if (typeof value === "string") return value;
+  return value?.phone_number ?? null;
 }
 
 async function sendTelnyxWhatsAppText(from: string, to: string, body: string) {
@@ -158,8 +165,9 @@ export async function POST(request: Request) {
 }
 
 async function handleTelnyxInbound(data: TelnyxPayload | null, raw: TelnyxWebhook) {
-  const from = normalizeE164(data?.from?.phone_number);
-  const to = normalizeE164(data?.to?.[0]?.phone_number);
+  const toValue = Array.isArray(data?.to) ? data.to[0] : data?.to;
+  const from = normalizeE164(phoneValue(data?.from));
+  const to = normalizeE164(phoneValue(toValue));
   const text = data?.text?.trim() ?? "";
   const messageId = data?.id?.trim() || null;
 
@@ -251,21 +259,7 @@ async function handleTelnyxInbound(data: TelnyxPayload | null, raw: TelnyxWebhoo
     }),
   ].filter(Boolean).join("\n\n");
 
-  if (!agentText.trimStart().startsWith("/")) {
-    await logBotEvent(admin, userId, "skipped", "no-trigger", from, agentText.slice(0, 200));
-    await logWebhookEvent({
-      eventType: "message.received",
-      result: "no-trigger",
-      userId,
-      from,
-      to,
-      messageId,
-      summary: agentText.slice(0, 200),
-    });
-    return;
-  }
-
-  const commandText = agentText.trimStart().replace(/^\/\s*/, "");
+  const commandText = agentText.trim();
   if (!commandText) {
     await logBotEvent(admin, userId, "skipped", "empty-command", from);
     await logWebhookEvent({

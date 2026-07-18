@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  PHONE_ALREADY_REGISTERED_MESSAGE,
+  isPhoneUniqueViolation,
+  normalizePhoneE164,
+} from "@/lib/phone/normalize";
 
 export async function POST(req: NextRequest) {
   const supabase = await createSupabaseServerClient();
@@ -28,11 +33,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Company name is required" }, { status: 400 });
   }
 
+  const normalizedPhone = normalizePhoneE164(phone_e164?.trim() || phone.trim());
+  if (!normalizedPhone) {
+    return NextResponse.json({ error: "Enter a valid phone number." }, { status: 400 });
+  }
+
   const { error } = await supabase
     .from("profiles")
     .update({
-      phone: phone.trim(),
-      phone_e164: phone_e164?.trim() || phone.trim(),
+      phone: normalizedPhone,
+      phone_e164: normalizedPhone,
       company_name: company_name.trim(),
       zip_code: zip_code?.trim() ?? null,
       quotes_per_month: quotes_per_month ?? "1-5",
@@ -45,6 +55,9 @@ export async function POST(req: NextRequest) {
 
   if (error) {
     console.error("[complete-profile]", error);
+    if (isPhoneUniqueViolation(error)) {
+      return NextResponse.json({ error: PHONE_ALREADY_REGISTERED_MESSAGE }, { status: 409 });
+    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 

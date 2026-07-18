@@ -21,7 +21,11 @@ import { WhatsAppConnection } from "@/components/settings/whatsapp-connection";
 import type { TaxRate } from "@/lib/types/database";
 import { CountryCodeSelect } from "@/components/phone/country-code-select";
 import { DEFAULT_PHONE_COUNTRY_CODE, inferPhoneCountryCode, phoneCountryValueToDialCode } from "@/lib/phone/country-codes";
-import { normalizePhoneE164 } from "@/lib/phone/normalize";
+import {
+  PHONE_ALREADY_REGISTERED_MESSAGE,
+  isPhoneUniqueViolation,
+  normalizePhoneE164,
+} from "@/lib/phone/normalize";
 
 // ── Tax Rates Card ────────────────────────────────────────────────────────────
 
@@ -282,12 +286,22 @@ export function SettingsPageClient({ userId, profile }: { userId: string; profil
 
   async function onSaveProfile() {
     try {
-      if (email.trim().length > 0 && email.trim() !== profile.email) {
-        const { error: authError } = await supabase.auth.updateUser({ email: email.trim() });
-        if (authError) throw authError;
-      }
-
       const normalizedPhone = normalizePhoneE164(phone, phoneCountryValueToDialCode(phoneCountryCode));
+      if (!normalizedPhone) throw new Error("Enter a valid phone number.");
+
+      const availabilityResponse = await fetch("/api/phone/availability", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: normalizedPhone }),
+      });
+      const availability = (await availabilityResponse.json()) as {
+        available?: boolean;
+        error?: string;
+      };
+      if (!availabilityResponse.ok) {
+        throw new Error(availability.error ?? "Unable to verify phone number.");
+      }
+      if (!availability.available) throw new Error(PHONE_ALREADY_REGISTERED_MESSAGE);
 
       const { error } = await supabase
         .from("profiles")
@@ -305,10 +319,13 @@ export function SettingsPageClient({ userId, profile }: { userId: string; profil
         .eq("id", userId);
 
       if (error) {
-        if (error.code === "23505") {
-          throw new Error("That phone number is already linked to another WorksApp account.");
-        }
+        if (isPhoneUniqueViolation(error)) throw new Error(PHONE_ALREADY_REGISTERED_MESSAGE);
         throw error;
+      }
+
+      if (email.trim().length > 0 && email.trim() !== profile.email) {
+        const { error: authError } = await supabase.auth.updateUser({ email: email.trim() });
+        if (authError) throw authError;
       }
       toast.success(t.toasts.profileUpdated);
       router.refresh();

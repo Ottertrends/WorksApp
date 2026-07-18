@@ -18,7 +18,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CountryCodeSelect } from "@/components/phone/country-code-select";
 import { DEFAULT_PHONE_COUNTRY_CODE, phoneCountryValueToDialCode } from "@/lib/phone/country-codes";
-import { normalizePhoneE164 } from "@/lib/phone/normalize";
+import {
+  PHONE_ALREADY_REGISTERED_MESSAGE,
+  normalizePhoneE164,
+} from "@/lib/phone/normalize";
 
 const quotesOptions = ["1-5", "6-15", "16-30", "30+"] as const;
 
@@ -156,6 +159,22 @@ export default function SignupPage() {
     try {
       const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin).replace(/\/$/, "");
       const normalizedPhone = normalizePhoneE164(values.phone, phoneCountryValueToDialCode(values.phone_country_code));
+      if (!normalizedPhone) throw new Error("Enter a valid phone number.");
+
+      const availabilityResponse = await fetch("/api/phone/availability", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: normalizedPhone }),
+      });
+      const availability = (await availabilityResponse.json()) as {
+        available?: boolean;
+        error?: string;
+      };
+      if (!availabilityResponse.ok) {
+        throw new Error(availability.error ?? "Unable to verify phone number.");
+      }
+      if (!availability.available) throw new Error(PHONE_ALREADY_REGISTERED_MESSAGE);
+
       const { data, error } = await supabase.auth.signUp({
         email: values.email,
         password: values.password,
@@ -174,7 +193,18 @@ export default function SignupPage() {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        const retryResponse = await fetch("/api/phone/availability", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: normalizedPhone }),
+        });
+        const retryAvailability = (await retryResponse.json()) as { available?: boolean };
+        if (retryResponse.ok && !retryAvailability.available) {
+          throw new Error(PHONE_ALREADY_REGISTERED_MESSAGE);
+        }
+        throw error;
+      }
 
       if (!data.session) {
         // Email confirmation required — Supabase sent a verification email
