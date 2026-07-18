@@ -199,10 +199,12 @@ export async function processContractorMessage(
         const linkClaim = claimsSharedLink(text);
         const hasInvoiceMutation = [...successfulTools].some((name) => INVOICE_MUTATION_TOOLS.has(name));
         const hasVerifiedLink = verifiedUrls.size > 0;
+        const replyUrls = extractHttpUrls(text);
+        const hasUnverifiedUrl = replyUrls.some((url) => !verifiedUrls.has(url));
 
         if (
           correctionCount < 2
-          && ((completedClaim && !hasInvoiceMutation) || (linkClaim && !hasVerifiedLink))
+          && ((completedClaim && !hasInvoiceMutation) || (linkClaim && (!hasVerifiedLink || hasUnverifiedUrl)))
         ) {
           messages.push(message);
           messages.push({
@@ -224,8 +226,15 @@ export async function processContractorMessage(
           };
         }
 
-        if (hasVerifiedLink && claimsSharedLink(text) && !extractHttpUrls(text).length) {
-          return { reply: `${text}\n\n${[...verifiedUrls][0]}` };
+        if (linkClaim && hasVerifiedLink) {
+          const verifiedUrl = [...verifiedUrls][0];
+          if (hasUnverifiedUrl) {
+            return {
+              reply: `Here is the verified WorksApp link:\n${verifiedUrl}`,
+              error: "Replaced unverified URL in agent response",
+            };
+          }
+          if (!replyUrls.length) return { reply: `${text}\n\n${verifiedUrl}` };
         }
 
         return { reply: text || "Done." };
