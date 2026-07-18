@@ -32,6 +32,14 @@ function isPhoneJid(jid: string): boolean {
   return local.length >= 7 && local.length <= 15;
 }
 
+function ownerJidFromPhone(phone: string | null | undefined): string | null {
+  if (!phone || typeof phone !== "string") return null;
+  const digits = phone.replace(/\D/g, "");
+  if (!digits) return null;
+  const normalized = digits.length === 10 ? `1${digits}` : digits;
+  return `${normalized}@s.whatsapp.net`;
+}
+
 function connectionSlot(
   instance: string,
   primaryStored: string | null | undefined,
@@ -79,27 +87,36 @@ async function resolveOwnerJids(
   const profilePhone = typeof prof?.phone_e164 === "string" && prof.phone_e164.trim()
     ? prof.phone_e164
     : prof?.phone;
+  const profileOwnerJid = ownerJidFromPhone(profilePhone);
+
+  // The profile phone is the user's current source of truth. Country-code edits
+  // must take effect immediately, regardless of stale session JIDs or webhook sender.
+  if (profileOwnerJid) {
+    if (!storedJid || !whatsappDigitsLooselyEqual(storedJid, profileOwnerJid)) {
+      await mergeWaSession(admin, userId, instanceName, { owner_jid: profileOwnerJid });
+      if (isPrimaryInstance(instanceName, prof, userId)) {
+        await admin.from("profiles").update({ whatsapp_owner_jid: profileOwnerJid }).eq("id", userId);
+      }
+      console.log(
+        "[evolution-webhook] ownerJid from profile phone:",
+        profileOwnerJid,
+        "| previous:",
+        storedJid ?? "(none)",
+      );
+    } else {
+      console.log("[evolution-webhook] ownerJid from profile phone/session:", profileOwnerJid);
+    }
+    return { ownerJid: profileOwnerJid, ownerLid, lidPending };
+  }
 
   // 1. Prefer stored canonical JID for this Evolution instance
   if (storedJid && typeof storedJid === "string") {
-    if (
-      typeof profilePhone === "string" &&
-      profilePhone.trim() &&
-      !whatsappDigitsLooselyEqual(storedJid, profilePhone)
-    ) {
-      console.log(
-        "[evolution-webhook] stored ownerJid differs from profile phone; using profile fallback:",
-        storedJid,
-        profilePhone,
-      );
-    } else {
-      console.log(
-        "[evolution-webhook] ownerJid from session:",
-        instanceName,
-        storedJid,
-      );
-      return { ownerJid: storedJid, ownerLid, lidPending };
-    }
+    console.log(
+      "[evolution-webhook] ownerJid from session:",
+      instanceName,
+      storedJid,
+    );
+    return { ownerJid: storedJid, ownerLid, lidPending };
   }
 
   // 2. Trust payload.sender if it looks like a real phone JID
@@ -122,16 +139,8 @@ async function resolveOwnerJids(
     console.log("[evolution-webhook] payload.sender looks non-phone, ignoring:", raw);
   }
 
-  // 3. Last resort: profile phone (shared). US 10-digit → prepend 1.
-  const phone = profilePhone;
-  if (!phone || typeof phone !== "string")
-    return { ownerJid: null, ownerLid, lidPending };
-  const digits = phone.replace(/\D/g, "");
-  if (!digits) return { ownerJid: null, ownerLid, lidPending };
-  const normalized = digits.length === 10 ? `1${digits}` : digits;
-  const ownerJid = `${normalized}@s.whatsapp.net`;
-  console.log("[evolution-webhook] ownerJid from DB phone (normalized):", ownerJid);
-  return { ownerJid, ownerLid, lidPending };
+  // No profile, session, or sender phone available.
+  return { ownerJid: null, ownerLid, lidPending };
 }
 
 export async function POST(request: Request) {
@@ -438,11 +447,7 @@ async function handleMessagesUpsert(
     }
     const ownerDigits = ownerJid.split("@")[0].split(":")[0].replace(/\D/g, "");
     const remoteDigits = jid.split("@")[0].split(":")[0].replace(/\D/g, "");
-    const isSelfChat =
-      ownerDigits.length >= 7 &&
-      (remoteDigits === ownerDigits ||
-        remoteDigits.endsWith(ownerDigits) ||
-        ownerDigits.endsWith(remoteDigits));
+    const isSelfChat = whatsappDigitsLooselyEqual(jid, ownerJid);
     console.log("[evolution-webhook] Self-chat check | remoteDigits:", remoteDigits, "| ownerDigits:", ownerDigits, "| match:", isSelfChat);
     if (!isSelfChat) {
       console.log("[evolution-webhook] Not self-chat — skipping | remoteJid:", jid);
