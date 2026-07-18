@@ -15,6 +15,20 @@ interface BotEvent {
   summary: string | null;
 }
 
+interface WebhookEvent {
+  id: string;
+  created_at: string;
+  provider: string;
+  event_type: string | null;
+  result: string;
+  sender_phone_e164: string | null;
+  recipient_phone_e164: string | null;
+  provider_message_id: string | null;
+  summary: string | null;
+  error: string | null;
+  matched_current_user: boolean;
+}
+
 const EVENT_COLORS: Record<string, string> = {
   received:  "bg-blue-100 text-blue-800",
   bootstrap: "bg-purple-100 text-purple-800",
@@ -87,6 +101,8 @@ export function BotDiagnostics() {
 
   const [events, setEvents] = React.useState<BotEvent[] | null>(null);
   const [eventsLoading, setEventsLoading] = React.useState(false);
+  const [webhookEvents, setWebhookEvents] = React.useState<WebhookEvent[] | null>(null);
+  const [webhookEventsLoading, setWebhookEventsLoading] = React.useState(false);
 
   async function loadBotEvents() {
     setEventsLoading(true);
@@ -98,6 +114,19 @@ export function BotDiagnostics() {
       setEvents([]);
     } finally {
       setEventsLoading(false);
+    }
+  }
+
+  async function loadWebhookEvents() {
+    setWebhookEventsLoading(true);
+    try {
+      const res = await fetch("/api/debug/whatsapp-events");
+      const data = (await res.json()) as { events?: WebhookEvent[]; error?: string };
+      setWebhookEvents(data.events ?? []);
+    } catch {
+      setWebhookEvents([]);
+    } finally {
+      setWebhookEventsLoading(false);
     }
   }
 
@@ -294,6 +323,67 @@ export function BotDiagnostics() {
       </div>
 
       {/* Bot event log */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-medium text-slate-700 dark:text-slate-200">WhatsApp Webhook Trace</div>
+            <div className="text-xs text-slate-500">Provider-level Telnyx events, including phone match and send failures</div>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => void loadWebhookEvents()}
+            disabled={webhookEventsLoading}
+          >
+            {webhookEventsLoading ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> Loading...</>
+            ) : (
+              <><RefreshCw className="w-4 h-4" /> Load Trace</>
+            )}
+          </Button>
+        </div>
+
+        {webhookEvents !== null && (
+          webhookEvents.length === 0 ? (
+            <div className="text-sm text-slate-500 py-2">No webhook trace events yet.</div>
+          ) : (
+            <div className="rounded-lg border border-slate-200 overflow-hidden">
+              <table className="w-full text-xs">
+                <thead className="bg-slate-50 text-slate-500">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-medium">Time</th>
+                    <th className="text-left px-3 py-2 font-medium">Result</th>
+                    <th className="text-left px-3 py-2 font-medium">From</th>
+                    <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">Summary / Error</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {webhookEvents.map((ev) => {
+                    const isError = ev.result.includes("failed") || ev.result.includes("error") || ev.error;
+                    return (
+                      <tr key={ev.id} className="hover:bg-slate-50">
+                        <td className="px-3 py-2 text-slate-400 whitespace-nowrap">
+                          {new Date(ev.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${isError ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-700"}`}>
+                            {ev.result}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-slate-500 font-mono">{ev.sender_phone_e164 ?? "-"}</td>
+                        <td className="px-3 py-2 text-slate-400 truncate max-w-xs hidden sm:table-cell">
+                          {ev.error ?? ev.summary ?? "-"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )
+        )}
+      </div>
+
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <div>

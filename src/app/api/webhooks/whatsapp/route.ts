@@ -23,6 +23,18 @@ type TelnyxWebhook = {
   } | null;
 };
 
+type WebhookLogInput = {
+  eventType?: string | null;
+  result: string;
+  userId?: string | null;
+  from?: string | null;
+  to?: string | null;
+  messageId?: string | null;
+  summary?: string | null;
+  error?: string | null;
+  raw?: unknown;
+};
+
 function getVerifyToken() {
   return process.env.WHATSAPP_VERIFY_TOKEN?.trim() ?? "";
 }
@@ -40,6 +52,26 @@ function getTelnyxApiKey(): string {
   const key = process.env.TELNYX_API_KEY?.trim();
   if (!key) throw new Error("Missing TELNYX_API_KEY");
   return key;
+}
+
+async function logWebhookEvent(input: WebhookLogInput) {
+  try {
+    const admin = createSupabaseAdminClient();
+    await admin.from("whatsapp_webhook_events").insert({
+      provider: "telnyx",
+      event_type: input.eventType ?? null,
+      result: input.result,
+      user_id: input.userId ?? null,
+      sender_phone_e164: input.from ?? null,
+      recipient_phone_e164: input.to ?? null,
+      provider_message_id: input.messageId ?? null,
+      summary: input.summary ? input.summary.slice(0, 500) : null,
+      error: input.error ? input.error.slice(0, 1000) : null,
+      raw: input.raw ?? null,
+    });
+  } catch (e) {
+    console.error("[whatsapp-webhook] Failed to write webhook diagnostic:", e);
+  }
 }
 
 async function sendTelnyxWhatsAppText(from: string, to: string, body: string) {
@@ -112,14 +144,20 @@ export async function POST(request: Request) {
   });
 
   if (eventType !== "message.received") {
+    await logWebhookEvent({
+      eventType,
+      result: "ignored-event",
+      messageId: data?.id ?? payload.data?.id ?? null,
+      raw: payload,
+    });
     return NextResponse.json({ ok: true, ignored: eventType || "unknown-event" });
   }
 
-  await handleTelnyxInbound(data ?? null);
+  await handleTelnyxInbound(data ?? null, payload);
   return NextResponse.json({ ok: true });
 }
 
-async function handleTelnyxInbound(data: TelnyxPayload | null) {
+async function handleTelnyxInbound(data: TelnyxPayload | null, raw: TelnyxWebhook) {
   const from = normalizeE164(data?.from?.phone_number);
   const to = normalizeE164(data?.to?.[0]?.phone_number);
   const text = data?.text?.trim() ?? "";
@@ -127,8 +165,26 @@ async function handleTelnyxInbound(data: TelnyxPayload | null) {
 
   if (!from || !to) {
     console.warn("[whatsapp-webhook] Missing from/to phone", { from, to });
+    await logWebhookEvent({
+      eventType: "message.received",
+      result: "missing-from-or-to",
+      from,
+      to,
+      messageId,
+      raw,
+    });
     return;
   }
+
+  await logWebhookEvent({
+    eventType: "message.received",
+    result: "received",
+    from,
+    to,
+    messageId,
+    summary: text || (data?.media?.length ? `[${data.media.length} media item(s)]` : null),
+    raw,
+  });
 
   const admin = createSupabaseAdminClient();
   const { data: profile, error: profileErr } = await admin
@@ -139,17 +195,50 @@ async function handleTelnyxInbound(data: TelnyxPayload | null) {
 
   if (profileErr) {
     console.error("[whatsapp-webhook] Profile lookup failed:", profileErr);
+    await logWebhookEvent({
+      eventType: "message.received",
+      result: "profile-lookup-failed",
+      from,
+      to,
+      messageId,
+      error: profileErr.message,
+    });
     return;
   }
 
   const userId = profile?.id as string | undefined;
   if (!userId) {
     console.warn("[whatsapp-webhook] No profile for sender:", from);
+    await logWebhookEvent({
+      eventType: "message.received",
+      result: "no-profile-for-sender",
+      from,
+      to,
+      messageId,
+      summary: "Sender phone does not match profiles.phone_e164",
+    });
     return;
   }
 
+  await logWebhookEvent({
+    eventType: "message.received",
+    result: "profile-matched",
+    userId,
+    from,
+    to,
+    messageId,
+  });
+
   if (!text && !data?.media?.length) {
     await logBotEvent(admin, userId, "skipped", "empty-message", from);
+    await logWebhookEvent({
+      eventType: "message.received",
+      result: "empty-message",
+      userId,
+      from,
+      to,
+      messageId,
+    });
     return;
   }
 
@@ -164,12 +253,29 @@ async function handleTelnyxInbound(data: TelnyxPayload | null) {
 
   if (!agentText.trimStart().startsWith("/")) {
     await logBotEvent(admin, userId, "skipped", "no-trigger", from, agentText.slice(0, 200));
+    await logWebhookEvent({
+      eventType: "message.received",
+      result: "no-trigger",
+      userId,
+      from,
+      to,
+      messageId,
+      summary: agentText.slice(0, 200),
+    });
     return;
   }
 
   const commandText = agentText.trimStart().replace(/^\/\s*/, "");
   if (!commandText) {
     await logBotEvent(admin, userId, "skipped", "empty-command", from);
+    await logWebhookEvent({
+      eventType: "message.received",
+      result: "empty-command",
+      userId,
+      from,
+      to,
+      messageId,
+    });
     return;
   }
 
@@ -193,16 +299,41 @@ async function handleTelnyxInbound(data: TelnyxPayload | null) {
   if (insertErr) {
     if (insertErr.code === "23505") {
       await logBotEvent(admin, userId, "skipped", "duplicate", from, messageId ?? undefined);
+      await logWebhookEvent({
+        eventType: "message.received",
+        result: "duplicate-message",
+        userId,
+        from,
+        to,
+        messageId,
+      });
       return;
     }
     console.error("[whatsapp-webhook] Message insert failed:", insertErr);
     await logBotEvent(admin, userId, "error", "insert-failed", from, insertErr.message);
+    await logWebhookEvent({
+      eventType: "message.received",
+      result: "insert-failed",
+      userId,
+      from,
+      to,
+      messageId,
+      error: insertErr.message,
+    });
     return;
   }
 
   const inboundId = inserted?.id as string | undefined;
   if (!inboundId) {
     await logBotEvent(admin, userId, "error", "missing-inbound-id", from);
+    await logWebhookEvent({
+      eventType: "message.received",
+      result: "missing-inbound-id",
+      userId,
+      from,
+      to,
+      messageId,
+    });
     return;
   }
 
@@ -222,6 +353,15 @@ async function handleTelnyxInbound(data: TelnyxPayload | null) {
     }));
 
   await logBotEvent(admin, userId, "received", "telnyx-inbound", from, commandText.slice(0, 200));
+  await logWebhookEvent({
+    eventType: "message.received",
+    result: "agent-called",
+    userId,
+    from,
+    to,
+    messageId,
+    summary: commandText.slice(0, 200),
+  });
 
   let reply: string;
   try {
@@ -229,11 +369,29 @@ async function handleTelnyxInbound(data: TelnyxPayload | null) {
     reply = agentResult.reply;
     if (agentResult.error) {
       await logBotEvent(admin, userId, "error", "agent-warning", from, agentResult.error.slice(0, 200));
+      await logWebhookEvent({
+        eventType: "message.received",
+        result: "agent-warning",
+        userId,
+        from,
+        to,
+        messageId,
+        error: agentResult.error,
+      });
     }
   } catch (e) {
     const err = e instanceof Error ? e.message : String(e);
     console.error("[whatsapp-webhook] Agent failed:", err);
     await logBotEvent(admin, userId, "error", "agent-error", from, err.slice(0, 200));
+    await logWebhookEvent({
+      eventType: "message.received",
+      result: "agent-error",
+      userId,
+      from,
+      to,
+      messageId,
+      error: err,
+    });
     reply = "Sorry, I'm having trouble processing that. Please try again in a moment.";
   }
 
@@ -256,9 +414,27 @@ async function handleTelnyxInbound(data: TelnyxPayload | null) {
   try {
     await sendTelnyxWhatsAppText(to, from, reply);
     await logBotEvent(admin, userId, "replied", "reply-sent", from, reply.slice(0, 200));
+    await logWebhookEvent({
+      eventType: "message.received",
+      result: "reply-sent",
+      userId,
+      from,
+      to,
+      messageId,
+      summary: reply.slice(0, 200),
+    });
   } catch (e) {
     const err = e instanceof Error ? e.message : String(e);
     console.error("[whatsapp-webhook] Telnyx reply failed:", err);
     await logBotEvent(admin, userId, "error", "reply-failed", from, err.slice(0, 200));
+    await logWebhookEvent({
+      eventType: "message.received",
+      result: "reply-failed",
+      userId,
+      from,
+      to,
+      messageId,
+      error: err,
+    });
   }
 }
