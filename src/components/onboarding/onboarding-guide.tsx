@@ -52,17 +52,17 @@ const steps = [
       <div className="flex flex-col gap-4">
         <div className="rounded-xl bg-primary/10 dark:bg-primary/20 border border-primary/20 p-4 text-center">
           <p className="text-sm font-semibold text-primary dark:text-primary/90">
-            Always start your message with <span className="font-mono text-lg">/</span>
+            Message the WorksApp number normally
           </p>
           <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-            Open WhatsApp, message your own number, and type a command starting with /.
+            Open WhatsApp and send your request in plain language.
           </p>
         </div>
         <div className="flex flex-col gap-2">
           {[
-            { cmd: "/nuevo trabajo Kitchen remodel", desc: "Start a new project" },
-            { cmd: "/factura", desc: "Draft an invoice" },
-            { cmd: "/save $12/sq ft for tile", desc: "Save a price" },
+            { cmd: "Create a kitchen remodel project", desc: "Start a new project" },
+            { cmd: "Draft an invoice for this project", desc: "Draft an invoice" },
+            { cmd: "Save $12/sq ft for tile", desc: "Save a price" },
           ].map(({ cmd, desc }) => (
             <div key={cmd} className="rounded-lg bg-slate-50 dark:bg-slate-900 p-3">
               <code className="text-sm font-mono text-primary">{cmd}</code>

@@ -897,6 +897,20 @@ export async function executeTool(
       const scopeOverride = input.scope_override ? String(input.scope_override).trim() : undefined;
       const termsOverride = input.terms_override ? String(input.terms_override).trim() : undefined;
       const validUntilDays = typeof input.valid_until_days === "number" ? input.valid_until_days : 30;
+      const rawProposalItems = Array.isArray(input.line_items) ? input.line_items : [];
+      const suppliedLineItems: ProposalLineItem[] = rawProposalItems.flatMap((item) => {
+        if (!item || typeof item !== "object") return [];
+        const row = item as Record<string, unknown>;
+        const description = String(row.description ?? "").trim();
+        const qty = Number(row.quantity);
+        const unitPrice = Number(row.unit_price);
+        return description && Number.isFinite(qty) && qty > 0 && Number.isFinite(unitPrice) && unitPrice >= 0
+          ? [{ description, qty, unitPrice }]
+          : [];
+      });
+      if (rawProposalItems.length > 0 && suppliedLineItems.length !== rawProposalItems.length) {
+        return jsonResult({ error: "Each proposal line item needs a description, positive quantity, and non-negative unit price." });
+      }
 
       // Fetch project
       const { data: project, error: projErr } = await admin
@@ -960,7 +974,7 @@ export async function executeTool(
       let authoritativeLineItems: ProposalLineItem[] = [];
       if (invoiceIds.length > 0) {
         const { data: lineItems } = await admin
-          .from("invoice_line_items")
+          .from("invoice_items")
           .select("description, quantity, unit_price, total")
           .in("invoice_id", invoiceIds)
           .limit(30);
@@ -1065,7 +1079,8 @@ Return ONLY valid JSON, no markdown:
       if (scopeOverride) proposal.scope = scopeOverride;
       if (termsOverride) proposal.terms = termsOverride;
       proposal.validUntil = validUntilStr;
-      proposal.lineItems = authoritativeLineItems;
+      // Explicit quote data belongs to this proposal only. Invoice items are optional context.
+      proposal.lineItems = suppliedLineItems.length > 0 ? suppliedLineItems : authoritativeLineItems;
 
       const profileData = profile as Record<string, unknown> | null;
 

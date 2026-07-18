@@ -60,11 +60,11 @@ export function HelpModal({ open, onClose, userName, userEmail }: Props) {
   }
 
   const commands = [
-    { cmd: "/nuevo trabajo Kitchen remodel", desc: "Create a new project" },
-    { cmd: "/factura", desc: "Draft an invoice for the current project" },
-    { cmd: "/save $12/sq ft for tile", desc: "Save a price or note" },
-    { cmd: "/projects", desc: "List your projects" },
-    { cmd: "/cliente John Smith", desc: "Save or look up a client" },
+    { cmd: "Create a new project for a kitchen remodel", desc: "Create a new project" },
+    { cmd: "Draft an invoice for this project", desc: "Draft an invoice for the current project" },
+    { cmd: "Save $12/sq ft for tile", desc: "Save a price or note" },
+    { cmd: "Show my projects", desc: "List your projects" },
+    { cmd: "Save client John Smith", desc: "Save or look up a client" },
   ];
 
   return (
@@ -97,10 +97,10 @@ export function HelpModal({ open, onClose, userName, userEmail }: Props) {
             {/* Key rule */}
             <div className="rounded-xl bg-primary/10 dark:bg-primary/20 border border-primary/20 p-4">
               <p className="text-sm font-semibold text-primary dark:text-primary/90 text-center">
-                Always start your message with <span className="font-mono text-lg">/</span>
+                Message the WorksApp number normally
               </p>
               <p className="text-xs text-slate-600 dark:text-slate-400 text-center mt-1">
-                The bot only responds to messages that begin with a forward slash.
+                Ask for what you need in plain language and your assistant will take it from there.
               </p>
             </div>
 
@@ -111,7 +111,7 @@ export function HelpModal({ open, onClose, userName, userEmail }: Props) {
                 "Go to Settings → WhatsApp and connect your number.",
                 "Open WhatsApp and message the WorksApp bot at +1 737 703 1190.",
                 "Send a message normally — slash commands still work too.",
-              ].map((step, i) => (
+              ].filter((step) => !step.includes("slash")).map((step, i) => (
                 <div key={i} className="flex gap-3 items-start">
                   <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center mt-0.5">
                     {i + 1}
@@ -124,7 +124,7 @@ export function HelpModal({ open, onClose, userName, userEmail }: Props) {
 
             {/* Example commands */}
             <div className="flex flex-col gap-2">
-              <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Example commands</h3>
+              <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Example messages</h3>
               <div className="flex flex-col gap-2">
                 {commands.map(({ cmd, desc }) => (
                   <div key={cmd} className="rounded-lg bg-slate-50 dark:bg-slate-900 p-3 flex flex-col gap-0.5">

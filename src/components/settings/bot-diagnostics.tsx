@@ -234,7 +234,7 @@ export function BotDiagnostics() {
       {result && (
         <div className="rounded-lg border border-slate-200 divide-y divide-slate-100">
           <StatusRow label="OpenAI API (ChatGPT)" result={result.checks.openai} />
-          <StatusRow label="Evolution API (WhatsApp)" result={result.checks.evolution} />
+          <StatusRow label="WhatsApp connection" result={result.checks.evolution} />
           <StatusRow label="Supabase Database" result={result.checks.db} />
           <StatusRow label="Webhook URL" result={result.checks.webhook} />
         </div>
@@ -259,7 +259,7 @@ export function BotDiagnostics() {
       <div className="flex flex-col gap-2">
         <div className="text-sm font-medium text-slate-700 dark:text-slate-200">Webhook Registration</div>
         <div className="text-xs text-slate-500">
-          Re-registers your webhook URL with the Evolution API. Run this if the bot isn&apos;t
+          Re-registers your WhatsApp connection. Run this if the bot isn&apos;t
           responding to WhatsApp messages.
         </div>
         <div>

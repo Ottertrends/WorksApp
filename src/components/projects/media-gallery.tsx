@@ -1,7 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { supabase } from "@/lib/supabase/client";
 import type { ProjectMedia } from "@/lib/types/database";
 
 export type MediaWithUrl = ProjectMedia & { signedUrl: string | null };
@@ -246,8 +248,13 @@ export function MediaGallery({
   items: MediaWithUrl[];
   projectId: string;
 }) {
+  const router = useRouter();
   const [media, setMedia] = useState(items);
   const [lightbox, setLightbox] = useState<MediaWithUrl | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => setMedia(items), [items]);
   const dragItemId = useRef<string | null>(null);
   const dragOverId = useRef<string | null>(null);
 
@@ -261,6 +268,30 @@ export function MediaGallery({
 
   function handleCaptionSaved(id: string, caption: string) {
     setMedia((prev) => prev.map((m) => m.id === id ? { ...m, description: caption || null } : m));
+  }
+
+  async function uploadFiles(files: FileList | null) {
+    if (!files?.length) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      for (const file of Array.from(files)) {
+        const signResponse = await fetch(`/api/projects/${projectId}/media`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "sign", mimeType: file.type, size: file.size }) });
+        const signed = (await signResponse.json()) as { storagePath?: string; token?: string; error?: string };
+        if (!signResponse.ok || !signed.storagePath || !signed.token) throw new Error(signed.error ?? "Unable to prepare upload");
+        const { error: uploadError } = await supabase.storage.from("project-media").uploadToSignedUrl(signed.storagePath, signed.token, file, { contentType: file.type });
+        if (uploadError) throw uploadError;
+        const completeResponse = await fetch(`/api/projects/${projectId}/media`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "complete", storagePath: signed.storagePath, mimeType: file.type, size: file.size }) });
+        const completed = (await completeResponse.json()) as { error?: string };
+        if (!completeResponse.ok) throw new Error(completed.error ?? "Unable to save uploaded file");
+      }
+      router.refresh();
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "Upload failed");
+    } finally {
+      setUploading(false);
+      if (uploadInputRef.current) uploadInputRef.current.value = "";
+    }
   }
 
   async function handleDragEnd() {
@@ -292,21 +323,24 @@ export function MediaGallery({
     );
   }
 
-  if (media.length === 0) return null;
-
   return (
     <>
       {lightbox && <Lightbox item={lightbox} onClose={() => setLightbox(null)} />}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">
-            Photos & Videos ({media.length})
-          </CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CardTitle className="text-base">Photos & Videos ({media.length})</CardTitle>
+            <button type="button" onClick={() => uploadInputRef.current?.click()} disabled={uploading} className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50 dark:bg-white dark:text-slate-900">
+              {uploading ? "Uploading…" : "Upload media"}
+            </button>
+            <input ref={uploadInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/3gpp" multiple className="hidden" onChange={(event) => void uploadFiles(event.target.files)} />
+          </div>
           <p className="text-sm text-slate-600 dark:text-slate-400 mt-1.5 leading-relaxed">
             Drag the grip on each thumbnail to reorder. Add or change text in the{" "}
             <span className="font-medium text-slate-700 dark:text-slate-300">Caption</span> area
             below each photo — same text size as email fields elsewhere in the app.
           </p>
+          {uploadError && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{uploadError}</p>}
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
