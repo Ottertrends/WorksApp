@@ -9,12 +9,21 @@ export const maxDuration = 300;
 
 type TelnyxPhone = { phone_number?: string | null };
 type TelnyxPhoneValue = TelnyxPhone | string;
+type TelnyxWhatsAppBody = {
+  id?: string | null;
+  type?: string | null;
+  text?: { body?: string | null } | null;
+  image?: { caption?: string | null; link?: string | null } | null;
+  document?: { caption?: string | null; link?: string | null } | null;
+  video?: { caption?: string | null; link?: string | null } | null;
+};
 type TelnyxPayload = {
   id?: string | null;
   from?: TelnyxPhoneValue | null;
   to?: TelnyxPhoneValue[] | TelnyxPhoneValue | null;
   text?: string | null;
   media?: Array<{ url?: string | null; content_type?: string | null }> | null;
+  body?: TelnyxWhatsAppBody | null;
 };
 type TelnyxWebhook = {
   data?: {
@@ -79,6 +88,24 @@ async function logWebhookEvent(input: WebhookLogInput) {
 function phoneValue(value: TelnyxPhoneValue | null | undefined): string | null {
   if (typeof value === "string") return value;
   return value?.phone_number ?? null;
+}
+
+function getInboundContent(data: TelnyxPayload | null): {
+  text: string;
+  media: Array<{ url?: string | null; content_type?: string | null }>;
+} {
+  const body = data?.body;
+  const nestedMedia = [
+    body?.image ? { url: body.image.link, content_type: "image" } : null,
+    body?.document ? { url: body.document.link, content_type: "document" } : null,
+    body?.video ? { url: body.video.link, content_type: "video" } : null,
+  ].filter((item): item is { url: string | null | undefined; content_type: string } => item !== null);
+
+  const caption = body?.image?.caption ?? body?.document?.caption ?? body?.video?.caption;
+  return {
+    text: (data?.text ?? body?.text?.body ?? caption ?? "").trim(),
+    media: [...(data?.media ?? []), ...nestedMedia],
+  };
 }
 
 async function sendTelnyxWhatsAppText(from: string, to: string, body: string) {
@@ -168,7 +195,7 @@ async function handleTelnyxInbound(data: TelnyxPayload | null, raw: TelnyxWebhoo
   const toValue = Array.isArray(data?.to) ? data.to[0] : data?.to;
   const from = normalizeE164(phoneValue(data?.from));
   const to = normalizeE164(phoneValue(toValue));
-  const text = data?.text?.trim() ?? "";
+  const { text, media } = getInboundContent(data);
   const messageId = data?.id?.trim() || null;
 
   if (!from || !to) {
@@ -190,7 +217,7 @@ async function handleTelnyxInbound(data: TelnyxPayload | null, raw: TelnyxWebhoo
     from,
     to,
     messageId,
-    summary: text || (data?.media?.length ? `[${data.media.length} media item(s)]` : null),
+    summary: text || (media.length ? `[${media.length} media item(s)]` : null),
     raw,
   });
 
@@ -237,7 +264,7 @@ async function handleTelnyxInbound(data: TelnyxPayload | null, raw: TelnyxWebhoo
     messageId,
   });
 
-  if (!text && !data?.media?.length) {
+  if (!text && !media.length) {
     await logBotEvent(admin, userId, "skipped", "empty-message", from);
     await logWebhookEvent({
       eventType: "message.received",
@@ -252,7 +279,7 @@ async function handleTelnyxInbound(data: TelnyxPayload | null, raw: TelnyxWebhoo
 
   const agentText = [
     text,
-    ...(data?.media ?? []).map((m) => {
+    ...media.map((m) => {
       const type = m.content_type ?? "media";
       const url = m.url ?? "";
       return `[${type} received${url ? `: ${url}` : ""}]`;
@@ -280,7 +307,7 @@ async function handleTelnyxInbound(data: TelnyxPayload | null, raw: TelnyxWebhoo
       project_id: null,
       direction: "inbound",
       content: commandText,
-      message_type: data?.media?.length ? "image" : "text",
+      message_type: media.length ? "image" : "text",
       whatsapp_message_id: messageId,
       sender_phone_e164: from,
       recipient_phone_e164: to,
