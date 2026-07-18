@@ -7,6 +7,8 @@ import { isPremium, maxProjects, maxMonthlySearches } from "@/lib/billing/access
 import { getStripe } from "@/lib/stripe";
 import type { ProjectStatus } from "@/lib/types/database";
 import type { ContentBlock, ProposalLineItem } from "@/lib/types/proposals";
+import { getAppBaseUrl } from "@/lib/url/app-url";
+import { authoritativeProposalLineItems } from "@/lib/proposals/line-items";
 
 function jsonResult(data: unknown) {
   return JSON.stringify(data);
@@ -608,10 +610,10 @@ export async function executeTool(
       if (includeZip) {
         const { data: prof } = await admin
           .from("profiles")
-          .select("zip, city, state")
+          .select("zip_code, city, state")
           .eq("id", userId)
           .maybeSingle();
-        zip = prof?.zip ?? null;
+        zip = prof?.zip_code ?? null;
         // Build location suffix: zip preferred, fallback to city+state
         if (!zip && prof?.city) {
           zip = [prof.city, prof.state].filter(Boolean).join(", ");
@@ -727,9 +729,15 @@ export async function executeTool(
     case "attach_media_to_project": {
       const mediaId = String(input.media_id ?? "").trim();
       const projectId = String(input.project_id ?? "").trim();
-      if (!mediaId || !projectId) {
-        return jsonResult({ error: "media_id and project_id are required" });
+      if (!projectId) return jsonResult({ error: "project_id is required" });
+      const { data: project } = await admin.from("projects").select("id").eq("id", projectId).eq("user_id", userId).maybeSingle();
+      if (!project) return jsonResult({ error: "Project not found" });
+      let resolvedMediaId = mediaId;
+      if (!resolvedMediaId) {
+        const { data: pending } = await admin.from("project_media").select("id").eq("user_id", userId).is("project_id", null).order("created_at", { ascending: false }).limit(1).maybeSingle();
+        resolvedMediaId = pending?.id ?? "";
       }
+      if (!resolvedMediaId) return jsonResult({ error: "No unassigned media was found for this workspace." });
 
       const patch: Record<string, unknown> = { project_id: projectId };
       if (input.description != null) patch.description = String(input.description);
@@ -737,11 +745,21 @@ export async function executeTool(
       const { error } = await admin
         .from("project_media")
         .update(patch)
-        .eq("id", mediaId)
+        .eq("id", resolvedMediaId)
         .eq("user_id", userId);
 
       if (error) return jsonResult({ error: error.message });
-      return jsonResult({ ok: true, media_id: mediaId, project_id: projectId });
+      const { data: attached } = await admin.from("project_media").select("id, project_id").eq("id", resolvedMediaId).eq("user_id", userId).maybeSingle();
+      if (!attached || attached.project_id !== projectId) return jsonResult({ error: "Media was not found or could not be attached to that project." });
+      return jsonResult({ ok: true, media_id: resolvedMediaId, project_id: projectId });
+    }
+
+    case "update_profile_zip": {
+      const zipCode = String(input.zip_code ?? "").trim();
+      if (!zipCode || zipCode.length > 12) return jsonResult({ error: "Enter a valid ZIP code." });
+      const { error } = await admin.from("profiles").update({ zip_code: zipCode }).eq("id", userId);
+      if (error) return jsonResult({ error: error.message });
+      return jsonResult({ ok: true, zip_code: zipCode, message: `Saved business ZIP code: ${zipCode}` });
     }
 
     // ── Calendar / Recurring Events ──────────────────────────────────────────
@@ -784,8 +802,15 @@ export async function executeTool(
         return jsonResult({ error: "manual_dates (array of YYYY-MM-DD) required for manual type" });
       }
 
-      const today = new Date().toISOString().slice(0, 10);
-      const startDate = input.start_date ? String(input.start_date) : today;
+      const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
+      const requestedStart = input.start_date ? String(input.start_date).trim() : today;
+      const isoDate = /^\d{4}-\d{2}-\d{2}$/;
+      if (!isoDate.test(requestedStart) || Number.isNaN(Date.parse(`${requestedStart}T00:00:00Z`))) return jsonResult({ error: "start_date must be a valid ISO date (YYYY-MM-DD)" });
+      const historical = input.historical === true;
+      if (!historical && requestedStart < today) return jsonResult({ error: `Cannot schedule a past date (${requestedStart}). Use a future date or explicitly set historical: true.` });
+      if (manualDates?.some((d) => !isoDate.test(d) || Number.isNaN(Date.parse(`${d}T00:00:00Z`)))) return jsonResult({ error: "manual_dates must contain valid ISO dates (YYYY-MM-DD)" });
+      if (!historical && manualDates?.some((d) => d < today)) return jsonResult({ error: "manual_dates cannot contain past dates unless historical: true." });
+      const startDate = requestedStart;
       const dayOfWeek = typeof input.day_of_week === "number" ? input.day_of_week : null;
       const intervalDays = typeof input.interval_days === "number" ? input.interval_days : null;
       const dayOfMonth = typeof input.day_of_month === "number" ? input.day_of_month : null;
@@ -843,7 +868,7 @@ export async function executeTool(
 
       // Note: Google Calendar sync handled separately by the calendar UI
 
-      return jsonResult({ ok: true, rule: data });
+      return jsonResult({ ok: true, rule: data, resolved_start_date: startDate, resolved_next_occurrence: nextOccurrence });
     }
 
     case "delete_calendar_event": {
@@ -932,6 +957,7 @@ export async function executeTool(
         .limit(5);
       const invoiceIds = (invoices ?? []).map((inv) => inv.id).filter(Boolean);
       let lineItemsText = "No line item detail available.";
+      let authoritativeLineItems: ProposalLineItem[] = [];
       if (invoiceIds.length > 0) {
         const { data: lineItems } = await admin
           .from("invoice_line_items")
@@ -939,6 +965,7 @@ export async function executeTool(
           .in("invoice_id", invoiceIds)
           .limit(30);
         if (lineItems?.length) {
+          authoritativeLineItems = authoritativeProposalLineItems(lineItems);
           lineItemsText = lineItems
             .map((li) => `  - ${li.description ?? "Item"}: qty=${li.quantity}, unit=$${li.unit_price}, total=$${li.total}`)
             .join("\n");
@@ -1038,6 +1065,7 @@ Return ONLY valid JSON, no markdown:
       if (scopeOverride) proposal.scope = scopeOverride;
       if (termsOverride) proposal.terms = termsOverride;
       proposal.validUntil = validUntilStr;
+      proposal.lineItems = authoritativeLineItems;
 
       const profileData = profile as Record<string, unknown> | null;
 
@@ -1380,8 +1408,7 @@ Return ONLY valid JSON, no markdown:
           .eq("id", proposalId);
       }
 
-      const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://www.worksapp.co").replace(/\/$/, "");
-      return jsonResult({ ok: true, share_url: `${appUrl}/proposal/${token}` });
+      return jsonResult({ ok: true, share_url: `${getAppBaseUrl()}/proposal/${token}` });
     }
 
     case "share_invoice": {
@@ -1414,8 +1441,7 @@ Return ONLY valid JSON, no markdown:
           .eq("id", invoiceId);
       }
 
-      const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://www.worksapp.co").replace(/\/$/, "");
-      return jsonResult({ ok: true, share_url: `${appUrl}/invoice/${token}` });
+      return jsonResult({ ok: true, share_url: `${getAppBaseUrl()}/invoice/${token}` });
     }
 
     default:

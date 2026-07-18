@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getAppBaseUrl } from "@/lib/url/app-url";
 
 function generateToken(len = 24): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -33,7 +34,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Proposal not found" }, { status: 404 });
 
     if (existing.share_token) {
-      return NextResponse.json({ shareToken: existing.share_token });
+      return NextResponse.json({
+        shareToken: existing.share_token,
+        share_url: `${getAppBaseUrl()}/proposal/${existing.share_token}`,
+      });
     }
 
     const token = generateToken();
@@ -44,7 +48,10 @@ export async function POST(request: Request) {
       .eq("user_id", user.id);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ shareToken: token });
+    return NextResponse.json({
+      shareToken: token,
+      share_url: `${getAppBaseUrl()}/proposal/${token}`,
+    });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Failed to generate share link";
     return NextResponse.json({ error: msg }, { status: 500 });

@@ -27,7 +27,7 @@ import {
   normalizePhoneE164,
 } from "@/lib/phone/normalize";
 
-// ── Tax Rates Card ────────────────────────────────────────────────────────────
+// â”€â”€ Tax Rates Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function TaxRatesCard() {
   const { t } = useLanguage();
@@ -99,7 +99,7 @@ function TaxRatesCard() {
 
         {/* Existing rates */}
         {loading ? (
-          <p className="text-xs text-slate-400">Loading…</p>
+          <p className="text-xs text-slate-400">Loadingâ€¦</p>
         ) : taxRates.length > 0 ? (
           <div className="flex flex-col gap-2">
             {taxRates.map((tr) => (
@@ -111,7 +111,7 @@ function TaxRatesCard() {
                   <span className="text-sm font-medium text-slate-800 dark:text-slate-200">{tr.name}</span>
                   <span className="ml-2 text-xs text-slate-500">{parseFloat(tr.rate).toFixed(2)}%</span>
                   {tr.stripe_tax_rate_id && (
-                    <span className="ml-2 text-xs text-emerald-600 dark:text-emerald-400">Stripe ✓</span>
+                    <span className="ml-2 text-xs text-emerald-600 dark:text-emerald-400">Stripe âœ“</span>
                   )}
                 </div>
                 <button
@@ -120,7 +120,7 @@ function TaxRatesCard() {
                   disabled={deletingId === tr.id}
                   className="text-xs text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50"
                 >
-                  {deletingId === tr.id ? "Deleting…" : "Delete"}
+                  {deletingId === tr.id ? "Deletingâ€¦" : "Delete"}
                 </button>
               </div>
             ))}
@@ -156,7 +156,7 @@ function TaxRatesCard() {
             />
           </div>
           <Button type="submit" disabled={saving} className="shrink-0">
-            {saving ? "Saving…" : "Add Rate"}
+            {saving ? "Savingâ€¦" : "Add Rate"}
           </Button>
         </form>
       </CardContent>
@@ -269,7 +269,7 @@ export function SettingsPageClient({ userId, profile }: { userId: string; profil
   const [phoneCountryCode, setPhoneCountryCode] = React.useState(
     inferPhoneCountryCode(profile.phone_e164 ?? profile.phone) || DEFAULT_PHONE_COUNTRY_CODE,
   );
-  const [zip, setZip] = React.useState(((profile as unknown) as Record<string, unknown>).zip as string ?? "");
+  const [zip, setZip] = React.useState(profile.zip_code ?? "");
   const [quotesPerMonth, setQuotesPerMonth] = React.useState<QuotesPerMonth>(
     (profile.quotes_per_month ?? "1-5") as QuotesPerMonth,
   );
@@ -288,6 +288,7 @@ export function SettingsPageClient({ userId, profile }: { userId: string; profil
     try {
       const normalizedPhone = normalizePhoneE164(phone, phoneCountryValueToDialCode(phoneCountryCode));
       if (!normalizedPhone) throw new Error("Enter a valid phone number.");
+      if (!zip.trim()) throw new Error("Business ZIP code is required.");
 
       const availabilityResponse = await fetch("/api/phone/availability", {
         method: "POST",
@@ -311,7 +312,7 @@ export function SettingsPageClient({ userId, profile }: { userId: string; profil
           email: email.trim(),
           phone: normalizedPhone ?? phone.trim(),
           phone_e164: normalizedPhone,
-          zip: zip.trim() || null,
+          zip_code: zip.trim(),
           quotes_per_month: quotesPerMonth,
           business_areas: businessAreas.length ? businessAreas : [],
           services: services.length ? services : [],
@@ -440,7 +441,7 @@ export function SettingsPageClient({ userId, profile }: { userId: string; profil
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="zip">Business ZIP Code</Label>
+              <Label htmlFor="zip">Business ZIP Code *</Label>
               <Input
                 id="zip"
                 value={zip}
@@ -448,7 +449,7 @@ export function SettingsPageClient({ userId, profile }: { userId: string; profil
                 placeholder="e.g. 78640"
                 maxLength={10}
               />
-              <p className="text-xs text-slate-400">Used by the AI assistant to find local store prices near you.</p>
+              <p className="text-xs text-slate-400">Required for local searches. The AI uses it unless you explicitly name another area.</p>
             </div>
           </div>
 
@@ -587,7 +588,7 @@ export function SettingsPageClient({ userId, profile }: { userId: string; profil
                 disabled={resetSending || resetSent}
                 onClick={() => void onSendResetEmail()}
               >
-                {resetSending ? "Sending…" : resetSent ? "Reset email sent ✓" : "Send password reset email"}
+                {resetSending ? "Sendingâ€¦" : resetSent ? "Reset email sent âœ“" : "Send password reset email"}
               </Button>
               {resetSent && (
                 <span className="text-xs text-slate-500">Check {profile.email}</span>

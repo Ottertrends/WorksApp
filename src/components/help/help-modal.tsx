@@ -109,8 +109,8 @@ export function HelpModal({ open, onClose, userName, userEmail }: Props) {
               <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Getting started</h3>
               {[
                 "Go to Settings → WhatsApp and connect your number.",
-                "Open WhatsApp on your phone and message your own number.",
-                "Type / before every command — the bot will respond.",
+                "Open WhatsApp and message the WorksApp bot at +1 737 703 1190.",
+                "Send a message normally — slash commands still work too.",
               ].map((step, i) => (
                 <div key={i} className="flex gap-3 items-start">
                   <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center mt-0.5">
@@ -119,6 +119,7 @@ export function HelpModal({ open, onClose, userName, userEmail }: Props) {
                   <p className="text-sm text-slate-700 dark:text-slate-300">{step}</p>
                 </div>
               ))}
+              <a href="https://wa.me/17377031190" target="_blank" rel="noreferrer" className="inline-flex text-sm font-medium text-primary hover:underline">Connect to bot on WhatsApp</a>
             </div>
 
             {/* Example commands */}

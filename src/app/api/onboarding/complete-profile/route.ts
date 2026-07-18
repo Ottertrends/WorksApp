@@ -33,6 +33,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Company name is required" }, { status: 400 });
   }
 
+  if (!zip_code?.trim()) {
+    return NextResponse.json({ error: "ZIP code is required" }, { status: 400 });
+  }
+
   const normalizedPhone = normalizePhoneE164(phone_e164?.trim() || phone.trim());
   if (!normalizedPhone) {
     return NextResponse.json({ error: "Enter a valid phone number." }, { status: 400 });

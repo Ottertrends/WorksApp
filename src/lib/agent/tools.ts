@@ -280,11 +280,20 @@ export const CONTRACTOR_TOOLS: ContractorTool[] = [
     input_schema: {
       type: "object",
       properties: {
-        media_id: { type: "string", description: "UUID of the project_media record" },
+        media_id: { type: "string", description: "UUID of the project_media record. Omit to use the most recent unassigned media received from this contractor." },
         project_id: { type: "string", description: "UUID of the project to attach to" },
         description: { type: "string", description: "Optional description of what the photo/video shows" },
       },
-      required: ["media_id", "project_id"],
+      required: ["project_id"],
+    },
+  },
+  {
+    name: "update_profile_zip",
+    description: "Save the contractor's own business ZIP code. Use when they say their ZIP is or ask to update their ZIP; do not use this for a project/client ZIP.",
+    input_schema: {
+      type: "object",
+      properties: { zip_code: { type: "string", description: "Business ZIP/postal code" } },
+      required: ["zip_code"],
     },
   },
 

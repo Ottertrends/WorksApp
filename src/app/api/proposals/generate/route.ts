@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_OPENAI_MODEL } from "@/lib/agent/model";
 import type { ProposalData, ContentBlock, ProposalDesign } from "@/lib/types/proposals";
+import { authoritativeProposalLineItems } from "@/lib/proposals/line-items";
 
 export async function POST(request: Request) {
   try {
@@ -106,6 +107,7 @@ export async function POST(request: Request) {
 
     const invoiceIds = (invoices ?? []).map((inv) => inv.id).filter(Boolean);
     let lineItemsText = "No line item detail available.";
+    let authoritativeLineItems: ProposalData["lineItems"] = [];
     if (invoiceIds.length > 0) {
       const { data: lineItems } = await admin
         .from("invoice_line_items")
@@ -113,6 +115,7 @@ export async function POST(request: Request) {
         .in("invoice_id", invoiceIds)
         .limit(30);
       if (lineItems?.length) {
+        authoritativeLineItems = authoritativeProposalLineItems(lineItems);
         lineItemsText = lineItems
           .map(
             (li) =>
@@ -242,6 +245,8 @@ Return ONLY valid JSON with exactly these fields, no markdown, no explanation:
     if (validUntilOverride) proposal.validUntil = validUntilOverride;
     if (termsOverride?.trim()) proposal.terms = termsOverride.trim();
     if (scopeOverride?.trim()) proposal.scope = scopeOverride.trim();
+    // Narrative is AI-generated, but stored invoice quantities and prices are not.
+    proposal.lineItems = authoritativeLineItems;
 
     const profileData = profile as Record<string, unknown> | null;
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { generateShareToken } from "@/lib/utils/token";
+import { getAppBaseUrl } from "@/lib/url/app-url";
 
 const SHAREABLE_STATUSES = ["open", "sent", "paid", "uncollectible"];
 
@@ -34,8 +35,7 @@ export async function POST(
 
     // Return existing token if already generated
     if (invoice.share_token) {
-      const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://www.worksapp.co").replace(/\/$/, "");
-      return NextResponse.json({ share_url: `${appUrl}/invoice/${invoice.share_token}` });
+      return NextResponse.json({ share_url: `${getAppBaseUrl()}/invoice/${invoice.share_token}` });
     }
 
     const token = generateShareToken();
@@ -47,8 +47,7 @@ export async function POST(
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://www.worksapp.co").replace(/\/$/, "");
-    return NextResponse.json({ share_url: `${appUrl}/invoice/${token}` });
+    return NextResponse.json({ share_url: `${getAppBaseUrl()}/invoice/${token}` });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Failed to generate share link";
     return NextResponse.json({ error: msg }, { status: 500 });

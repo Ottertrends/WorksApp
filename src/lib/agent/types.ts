@@ -15,10 +15,13 @@ export type ContractorContext = {
   city?: string | null;
   state?: string | null;
   stripeConnected?: boolean;
+  now?: Date;
 };
 
 /** Build a dynamic system prompt that includes the contractor's location context. */
 export function buildSystemPrompt(ctx: ContractorContext = {}): string {
+  const now = ctx.now ?? new Date();
+  const dateLine = `RUNTIME CONTEXT: ISO timestamp ${now.toISOString()}; calendar date ${now.toLocaleDateString("en-CA", { timeZone: "America/Chicago" })}; weekday ${now.toLocaleDateString("en-US", { weekday: "long", timeZone: "America/Chicago" })}; timezone America/Chicago. Resolve ambiguous dates in this calendar year unless that date has already passed, then use next year. Never create a past event unless the contractor explicitly asks for historical scheduling.`;
   const locationLine = ctx.zip
     ? `CONTRACTOR LOCATION: ZIP ${ctx.zip}${ctx.city ? `, ${ctx.city}` : ""}${ctx.state ? `, ${ctx.state}` : ""} — use this for ALL local store/price searches.`
     : ctx.city
@@ -31,7 +34,7 @@ export function buildSystemPrompt(ctx: ContractorContext = {}): string {
     ? "STRIPE CONNECT: Not connected — finalize_invoice will mark as open without a Stripe payment link. Advise the contractor to connect Stripe in Settings → Integrations if they want payment links."
     : "STRIPE CONNECT: Status unknown.";
 
-  return buildSystemPromptText(locationLine, stripeLine);
+  return buildSystemPromptText(`${locationLine}\n${dateLine}`, stripeLine);
 }
 
 // Keep SYSTEM_PROMPT as backward-compat alias (no location context)
@@ -158,6 +161,8 @@ Concise, mobile-friendly. Short paragraphs. Numbered lists for selections. Emoji
     - To view schedule: call list_calendar_events
     - To delete: call list_calendar_events to find the rule_id, confirm with contractor, then delete_calendar_event (confirmed: true)
     - Confirm after delete: "✅ Removed: [Project] recurring event"
+
+CURRENT DATE AND TIME: Use the actual current date and year supplied by the system when interpreting dates. Never schedule a new event in a past year unless the contractor explicitly asks for historical data.
 
 17. PROPOSALS
     Trigger words: "proposal", "formal quote", "propuesta", "cotización formal", "generate a quote", "make a proposal", "send a proposal"

@@ -116,7 +116,7 @@ export async function processContractorMessage(
     const admin = createSupabaseAdminClient();
     const [{ data: memRow }, { data: profRow }] = await Promise.all([
       admin.from("agent_memory").select("memory_text, updated_at").eq("user_id", userId).maybeSingle(),
-      admin.from("profiles").select("zip, city, state, stripe_connect_account_id, stripe_connect_charges_enabled").eq("id", userId).maybeSingle(),
+      admin.from("profiles").select("zip_code, city, state, stripe_connect_account_id, stripe_connect_charges_enabled").eq("id", userId).maybeSingle(),
     ]);
 
     const memoryBlock = memRow?.memory_text?.trim()
@@ -124,7 +124,7 @@ export async function processContractorMessage(
       : `\n\nCONTRACTOR MEMORY\n(No notes yet. As you learn about this contractor's services, pricing, clients, and work style, call update_memory to start building their profile.)`;
 
     const systemWithMemory = buildSystemPrompt({
-      zip: profRow?.zip,
+      zip: profRow?.zip_code,
       city: profRow?.city,
       state: profRow?.state,
       stripeConnected: !!(profRow?.stripe_connect_account_id && profRow?.stripe_connect_charges_enabled),

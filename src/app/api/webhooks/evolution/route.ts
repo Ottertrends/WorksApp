@@ -40,6 +40,15 @@ function ownerJidFromPhone(phone: string | null | undefined): string | null {
   return `${normalized}@s.whatsapp.net`;
 }
 
+async function resolveUserIdFromSender(admin: ReturnType<typeof createSupabaseAdminClient>, jid: string): Promise<string | null> {
+  const digits = jid.split("@")[0].split(":")[0].replace(/\D/g, "");
+  const candidates = [...new Set([digits, `+${digits}`, digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : ""])].filter(Boolean);
+  if (!candidates.length) return null;
+  const { data } = await admin.from("profiles").select("id, phone, phone_e164")
+    .or(candidates.flatMap((v) => [`phone.eq.${v}`, `phone_e164.eq.${v}`]).join(","));
+  return (data ?? []).find((p) => whatsappDigitsLooselyEqual(p.phone_e164 ?? p.phone ?? "", jid))?.id ?? null;
+}
+
 function connectionSlot(
   instance: string,
   primaryStored: string | null | undefined,
@@ -187,8 +196,10 @@ async function processPayload(payload: EvolutionWebhookPayload) {
     typeof payload.instance === "string" ? payload.instance : "";
 
   const admin = createSupabaseAdminClient();
-  const userId = await resolveUserIdFromWebhookInstance(admin, instance);
-  if (!userId) {
+  let userId = await resolveUserIdFromWebhookInstance(admin, instance);
+  const eventRaw = String(payload.event ?? "").toLowerCase();
+  const centralBot = process.env.CENTRAL_WHATSAPP_INSTANCE?.trim() === instance;
+  if (!userId && !centralBot) {
     console.log(
       "[evolution-webhook] No userId derived from instance:",
       instance,
@@ -199,13 +210,13 @@ async function processPayload(payload: EvolutionWebhookPayload) {
 
   // Team member routing: if this user is an active team member, run the agent
   // against the owner's workspace. Replies still go back to the member's instance.
-  let workspaceUserId = userId;
-  const { data: membership } = await admin
+  let workspaceUserId = userId ?? "";
+  const { data: membership } = userId ? await admin
     .from("team_members")
     .select("owner_user_id")
     .eq("member_user_id", userId)
     .eq("status", "active")
-    .maybeSingle();
+    .maybeSingle() : { data: null };
   if (membership?.owner_user_id) {
     workspaceUserId = membership.owner_user_id;
     console.log("[evolution-webhook] Team member:", userId, "→ workspace owner:", workspaceUserId);
@@ -216,10 +227,9 @@ async function processPayload(payload: EvolutionWebhookPayload) {
     return;
   }
 
-  const eventRaw = String(payload.event ?? "").toLowerCase();
   console.log("[evolution-webhook] Processing event:", eventRaw, "| userId:", userId, "| workspaceUserId:", workspaceUserId);
 
-  if (eventRaw.includes("connection")) {
+  if (userId && eventRaw.includes("connection")) {
     const payloadSenderForConn =
       typeof payload.sender === "string" ? payload.sender.trim() : null;
     await handleConnectionUpdate(
@@ -240,12 +250,12 @@ async function processPayload(payload: EvolutionWebhookPayload) {
     const chunks = normalizeMessagesUpsertData(payload.data);
     const payloadSender =
       typeof payload.sender === "string" ? payload.sender.trim() : null;
-    const { ownerJid, ownerLid, lidPending } = await resolveOwnerJids(
+    const { ownerJid, ownerLid, lidPending } = userId ? await resolveOwnerJids(
       admin,
       userId,
       instance,
       payloadSender,
-    );
+    ) : { ownerJid: null, ownerLid: null, lidPending: false };
     console.log(
       "[evolution-webhook] Message chunks to process:",
       chunks.length,
@@ -259,14 +269,23 @@ async function processPayload(payload: EvolutionWebhookPayload) {
       payloadSender ?? "(empty)",
     );
     for (const chunk of chunks) {
+      const inboundJid = chunk.key?.remoteJid ?? "";
+      const centralWorkspace = centralBot && chunk.key?.fromMe === false
+        ? await resolveUserIdFromSender(admin, inboundJid)
+        : null;
+      if (centralBot && !centralWorkspace) {
+        console.log("[evolution-webhook] Unknown central bot sender — skipping:", inboundJid);
+        continue;
+      }
       await handleMessagesUpsert(
         admin,
-        workspaceUserId,
+        centralWorkspace ?? workspaceUserId,
         instance,
         chunk,
-        ownerJid,
+        centralWorkspace ? inboundJid : ownerJid,
         ownerLid,
         lidPending,
+        centralBot,
       );
     }
   }
@@ -359,6 +378,7 @@ async function handleMessagesUpsert(
   ownerJid: string | null,
   ownerLid: string | null,
   lidPending: boolean,
+  isCentralBot = false,
 ) {
   const msgData = (data ?? {}) as MessagesUpsertData;
   const key = msgData.key;
@@ -377,7 +397,7 @@ async function handleMessagesUpsert(
     return;
   }
 
-  if (!fromMe) {
+  if (!fromMe && !isCentralBot) {
     console.log(
       "[evolution-webhook] fromMe=false — inbound from external, silent | remoteJid:",
       jid,
@@ -391,7 +411,7 @@ async function handleMessagesUpsert(
     .eq("id", userId)
     .maybeSingle();
 
-  if (jid.endsWith("@lid")) {
+  if (!isCentralBot && jid.endsWith("@lid")) {
     if (lidPending) {
       console.log("[evolution-webhook] @lid — lid_pending bootstrap, storing LID:", jid);
       await logBotEvent(admin, userId, "bootstrap", "lid-bootstrap", jid);
@@ -439,7 +459,7 @@ async function handleMessagesUpsert(
       }
       // fall through — "/" gate will decide if this message triggers the bot
     }
-  } else {
+  } else if (!isCentralBot) {
     if (!ownerJid) {
       console.log("[evolution-webhook] No ownerJid stored — skipping");
       await logBotEvent(admin, userId, "skipped", "no-owner-jid", jid);
@@ -542,6 +562,7 @@ async function handleMessagesUpsert(
             storagePath,
             error: mediaInsertErr,
           });
+          await admin.storage.from("project-media").remove([storagePath]);
         }
 
         if (mediaRow?.id) {
@@ -582,7 +603,7 @@ async function handleMessagesUpsert(
   // Only process messages that start with "/" — prevents bot from responding
   // to accidental self-chat messages or messages meant for other people.
   // Users send commands like: /nuevo trabajo, /factura, /lista proyectos
-  if (!agentText.trimStart().startsWith("/")) {
+  if (!isCentralBot && !agentText.trimStart().startsWith("/")) {
     console.log("[evolution-webhook] No '/' prefix — not a bot command, skipping | preview:", agentText.slice(0, 80));
     await logBotEvent(admin, userId, "skipped", "no-trigger", jid, agentText.slice(0, 200));
     return;
@@ -603,7 +624,7 @@ async function handleMessagesUpsert(
       project_id: null,
       direction: "inbound",
       content: commandText,
-      message_type: mediaInfo ? "image" : "text",
+      message_type: mediaInfo?.type === "video" ? "video" : mediaInfo ? "image" : "text",
       whatsapp_message_id: waMsgId,
       processed: false,
     })

@@ -31,6 +31,7 @@ const signupSchema = z.object({
   email: z.string().email("Enter a valid email"),
   phone_country_code: z.string().min(1, "Country code is required"),
   phone: z.string().min(1, "Phone is required"),
+  zip_code: z.string().trim().min(1, "ZIP code is required"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   quotes_per_month: z.enum(quotesOptions),
   business_areas: z.array(z.string()).min(1, "Select at least one business area"),
@@ -106,6 +107,7 @@ export default function SignupPage() {
       email: "",
       phone_country_code: DEFAULT_PHONE_COUNTRY_CODE,
       phone: "",
+      zip_code: "",
       password: "",
       quotes_per_month: "1-5",
       business_areas: [],
@@ -185,6 +187,7 @@ export default function SignupPage() {
             company_name: values.company_name,
             phone: normalizedPhone ?? values.phone,
             phone_e164: normalizedPhone,
+            zip_code: values.zip_code.trim(),
             quotes_per_month: values.quotes_per_month,
             business_areas: values.business_areas,
             services: values.services,
@@ -244,6 +247,12 @@ export default function SignupPage() {
                   <div className="text-sm text-danger">{errors.company_name.message}</div>
                 ) : null}
               </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="zip_code">Business ZIP code *</Label>
+                <Input id="zip_code" inputMode="numeric" autoComplete="postal-code" placeholder="78640" maxLength={10} {...register("zip_code")} />
+                <p className="text-xs text-slate-500">Used to tailor local searches unless you name another area.</p>
+                {errors.zip_code ? <div className="text-sm text-danger">{errors.zip_code.message}</div> : null}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -274,6 +283,12 @@ export default function SignupPage() {
                 {errors.phone ? (
                   <div className="text-sm text-danger">{errors.phone.message}</div>
                 ) : null}
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="zip_code">Business ZIP code *</Label>
+                <Input id="zip_code" inputMode="numeric" autoComplete="postal-code" placeholder="78640" maxLength={10} {...register("zip_code")} />
+                <p className="text-xs text-slate-500">Used to tailor local searches unless you name another area.</p>
+                {errors.zip_code ? <div className="text-sm text-danger">{errors.zip_code.message}</div> : null}
               </div>
             </div>
 

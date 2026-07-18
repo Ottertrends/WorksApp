@@ -28,9 +28,9 @@ const SERVICE_OPTIONS = [
 ];
 
 const QUOTES_OPTIONS = [
-  { value: "1-5", label: "1–5 per month" },
-  { value: "6-15", label: "6–15 per month" },
-  { value: "16-30", label: "16–30 per month" },
+  { value: "1-5", label: "1â€“5 per month" },
+  { value: "6-15", label: "6â€“15 per month" },
+  { value: "16-30", label: "16â€“30 per month" },
   { value: "30+", label: "30+ per month" },
 ];
 
@@ -73,6 +73,11 @@ export function ProfileSetupModal({ show, defaultCompanyName = "" }: Props) {
     }
     if (services.length === 0) {
       toast.error("Select at least one service");
+      return;
+    }
+
+    if (!zipCode.trim()) {
+      toast.error("ZIP code is required for local searches");
       return;
     }
 
@@ -139,7 +144,7 @@ export function ProfileSetupModal({ show, defaultCompanyName = "" }: Props) {
           {/* Zip code */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-              Zip code <span className="text-xs text-slate-400">(optional — for local pricing)</span>
+              ZIP code <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -147,6 +152,7 @@ export function ProfileSetupModal({ show, defaultCompanyName = "" }: Props) {
               onChange={(e) => setZipCode(e.target.value)}
               placeholder="90210"
               maxLength={10}
+              required
               className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
           </div>
@@ -218,7 +224,7 @@ export function ProfileSetupModal({ show, defaultCompanyName = "" }: Props) {
             disabled={submitting}
             className="w-full py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors mt-1"
           >
-            {submitting ? "Saving…" : "Save and continue"}
+            {submitting ? "Savingâ€¦" : "Save and continue"}
           </button>
         </form>
       </div>
