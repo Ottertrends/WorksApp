@@ -101,7 +101,7 @@ export const CONTRACTOR_TOOLS: ContractorTool[] = [
   {
     name: "create_invoice_draft",
     description:
-      "Create or update the draft invoice for a project. Always call list_price_book first to find standard prices for the work. If no items are provided, the project's quoted_amount and current_work are used. Each project has exactly one draft — this tool updates it if one already exists.",
+      "Create or update the draft invoice for a project. Before calling this, ALWAYS call list_price_book using the work/service terms. If it returns a credible match, show its saved unit and price, calculate any requested quantity/total from it, and wait for the contractor's explicit confirmation before calling this tool. Use the confirmed price-book values in items. Only use a lump sum when no price-book item matches or the contractor explicitly declines the match. Each project has exactly one draft — this tool updates it if one already exists.",
     input_schema: {
       type: "object",
       properties: {
@@ -184,7 +184,7 @@ export const CONTRACTOR_TOOLS: ContractorTool[] = [
   {
     name: "list_price_book",
     description:
-      "Get standard service/material prices from the contractor's price book. Always call this before creating an invoice or answering pricing questions. Use the search param to find relevant items by service type or category.",
+      "Get standard service/material prices from the contractor's price book. ALWAYS call this before creating an invoice or proposal, and before answering pricing questions. Use a concise trade/service search term (for example, 'fence' rather than a whole sentence). When it returns a match for a new invoice/proposal, show the saved unit and price and obtain explicit contractor confirmation before creating the document.",
     input_schema: {
       type: "object",
       properties: {
@@ -374,7 +374,7 @@ export const CONTRACTOR_TOOLS: ContractorTool[] = [
   {
     name: "generate_proposal",
     description:
-      "Generate a professional proposal/quote PDF for a project using AI. Fetches all project data (notes, media, invoices), generates structured content with ChatGPT, and saves it to the proposals section. Use when contractor asks to generate a proposal, formal quote, or cotización. Call list_projects first to get the project_id.",
+      "Generate a professional proposal/quote PDF for a project using AI. Before calling this, ALWAYS call list_price_book using the requested work/service. If a credible saved item matches, show its saved unit and unit price, calculate the requested quantity or total from it, and wait for the contractor's explicit confirmation. Then pass that confirmed calculation as line_items. Only use a lump-sum line item when no match exists or the contractor explicitly declines the saved item. Call list_projects first to get the project_id.",
     input_schema: {
       type: "object",
       properties: {

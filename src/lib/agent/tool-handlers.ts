@@ -502,10 +502,33 @@ export async function executeTool(
         .order("item_name");
 
       if (input.search != null && String(input.search).trim()) {
-        const term = `%${String(input.search).trim()}%`;
-        q = q.or(
-          `item_name.ilike.${term},category.ilike.${term},description.ilike.${term},supplier.ilike.${term}`,
-        );
+        const rawSearch = String(input.search).trim().toLowerCase();
+        const aliases: Record<string, string[]> = {
+          fencing: ["fence"],
+          fences: ["fence"],
+          roofing: ["roof"],
+          concrete: ["cement"],
+          cement: ["concrete"],
+        };
+        const terms = new Set<string>([rawSearch]);
+        for (const token of rawSearch.match(/[a-z0-9]+/g) ?? []) {
+          if (token.length < 3) continue;
+          terms.add(token);
+          aliases[token]?.forEach((alias) => terms.add(alias));
+          if (token.endsWith("s") && token.length > 3) terms.add(token.slice(0, -1));
+        }
+        const filters = [...terms]
+          .filter((term) => /^[a-z0-9 ]+$/.test(term))
+          .flatMap((term) => {
+            const pattern = `%${term}%`;
+            return [
+              `item_name.ilike.${pattern}`,
+              `category.ilike.${pattern}`,
+              `description.ilike.${pattern}`,
+              `supplier.ilike.${pattern}`,
+            ];
+          });
+        if (filters.length) q = q.or(filters.join(","));
       }
 
       const { data, error } = await q.limit(50);

@@ -13,9 +13,16 @@ type TelnyxWhatsAppBody = {
   id?: string | null;
   type?: string | null;
   text?: { body?: string | null } | null;
-  image?: { caption?: string | null; link?: string | null } | null;
-  document?: { caption?: string | null; link?: string | null } | null;
-  video?: { caption?: string | null; link?: string | null } | null;
+  image?: TelnyxNestedMedia | null;
+  document?: TelnyxNestedMedia | null;
+  video?: TelnyxNestedMedia | null;
+};
+type TelnyxNestedMedia = {
+  caption?: string | null;
+  // Telnyx currently uses `url`; `link` remains for older webhook payloads.
+  url?: string | null;
+  link?: string | null;
+  mime_type?: string | null;
 };
 type TelnyxPayload = {
   id?: string | null;
@@ -110,16 +117,38 @@ function getInboundContent(data: TelnyxPayload | null): {
 } {
   const body = data?.body;
   const nestedMedia = [
-    body?.image ? { url: body.image.link, content_type: "image" } : null,
-    body?.document ? { url: body.document.link, content_type: "document" } : null,
-    body?.video ? { url: body.video.link, content_type: "video" } : null,
-  ].filter((item): item is { url: string | null | undefined; content_type: string } => item !== null);
+    body?.image ? { url: body.image.url ?? body.image.link, content_type: body.image.mime_type ?? "image" } : null,
+    body?.document ? { url: body.document.url ?? body.document.link, content_type: body.document.mime_type ?? "document" } : null,
+    body?.video ? { url: body.video.url ?? body.video.link, content_type: body.video.mime_type ?? "video" } : null,
+  ].filter((item): item is { url: string; content_type: string } => !!item?.url);
 
   const caption = body?.image?.caption ?? body?.document?.caption ?? body?.video?.caption;
   return {
     text: (data?.text ?? body?.text?.body ?? caption ?? "").trim(),
     media: [...(data?.media ?? []), ...nestedMedia],
   };
+}
+
+function isTransientMediaResponse(status: number): boolean {
+  return status === 404 || status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
+async function downloadTelnyxMedia(url: string): Promise<Response> {
+  let lastResponse: Response | null = null;
+
+  // The URL can be an authenticated endpoint or a short-lived signed URL.
+  // Only temporary failures are retried, so ordinary messages are not delayed.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    let response = await fetch(url, { headers: { Authorization: `Bearer ${getTelnyxApiKey()}` } });
+    if (!response.ok) response = await fetch(url);
+    if (response.ok) return response;
+
+    lastResponse = response;
+    if (!isTransientMediaResponse(response.status) || attempt === 2) break;
+    await new Promise((resolve) => setTimeout(resolve, 350 * (attempt + 1)));
+  }
+
+  throw new Error(`Telnyx media download failed (${lastResponse?.status ?? "unknown"})`);
 }
 
 async function persistTelnyxMedia(args: {
@@ -143,12 +172,7 @@ async function persistTelnyxMedia(args: {
     }
   }
 
-  let response = await fetch(args.media.url, {
-    headers: { Authorization: `Bearer ${getTelnyxApiKey()}` },
-  });
-  // Telnyx may provide either an authenticated endpoint or a short-lived signed URL.
-  if (!response.ok) response = await fetch(args.media.url);
-  if (!response.ok) throw new Error(`Telnyx media download failed (${response.status})`);
+  const response = await downloadTelnyxMedia(args.media.url);
 
   const mimeType = (response.headers.get("content-type") ?? args.media.content_type ?? "")
     .split(";", 1)[0]
@@ -373,7 +397,7 @@ async function handleTelnyxInbound(data: TelnyxPayload | null, raw: TelnyxWebhoo
     return;
   }
 
-  const caption = data?.body?.image?.caption ?? data?.body?.video?.caption ?? null;
+  const caption = data?.body?.image?.caption ?? data?.body?.video?.caption ?? data?.body?.document?.caption ?? null;
   const mediaContexts: string[] = [];
   const uniqueMedia = media.filter((item, index, all) => item.url && all.findIndex((candidate) => candidate.url === item.url) === index);
   for (const item of uniqueMedia) {

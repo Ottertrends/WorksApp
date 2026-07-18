@@ -158,6 +158,10 @@ export async function processContractorMessage(
     const maxLoops = 15;
     const successfulTools = new Set<string>();
     const verifiedUrls = new Set<string>();
+    const explicitPriceBookConfirmation = /^(?:yes|yep|yeah|sure|confirm(?:ed)?|approved|use (?:it|that)|go ahead|proceed|do it|s[ií]|claro)\b/i
+      .test(messageText.trim());
+    let priceBookReviewed = false;
+    let priceBookMatchFound = false;
     let forceToolCall = false;
     let correctionCount = 0;
 
@@ -241,14 +245,17 @@ export async function processContractorMessage(
       }
 
       messages.push(message);
-      const toolResults = await Promise.all(
-        message.tool_calls.map(async (toolCall) => {
+      const toolResults: ChatCompletionMessageParam[] = [];
+      // Run calls in order: a price-book lookup must be evaluated before a
+      // document-creation call in the same agent turn.
+      for (const toolCall of message.tool_calls) {
           if (toolCall.type !== "function") {
-            return {
+            toolResults.push({
               role: "tool" as const,
               tool_call_id: toolCall.id,
               content: "Unsupported tool call type.",
-            };
+            });
+            continue;
           }
 
           let input: Record<string, unknown> = {};
@@ -258,10 +265,32 @@ export async function processContractorMessage(
             input = {};
           }
 
+          const isDocumentCreation = toolCall.function.name === "create_invoice_draft"
+            || toolCall.function.name === "generate_proposal";
+          if (isDocumentCreation && !explicitPriceBookConfirmation) {
+            const reason = !priceBookReviewed
+              ? "Price-book review required. Call list_price_book for the requested work before creating an invoice or proposal."
+              : priceBookMatchFound
+                ? "Price-book confirmation required. A saved matching item was found; show its unit, price, and calculation, then wait for the contractor to explicitly confirm before creating the document."
+                : null;
+            if (reason) {
+              toolResults.push({
+                role: "tool" as const,
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ ok: false, error: reason }),
+              });
+              continue;
+            }
+          }
+
           try {
             const result = await executeTool(userId, toolCall.function.name, input);
             try {
-              const parsed = JSON.parse(result) as { ok?: boolean; error?: unknown };
+              const parsed = JSON.parse(result) as { ok?: boolean; error?: unknown; count?: unknown };
+              if (toolCall.function.name === "list_price_book" && parsed.ok === true) {
+                priceBookReviewed = true;
+                priceBookMatchFound = Number(parsed.count ?? 0) > 0;
+              }
               if (parsed.ok === true && !parsed.error) {
                 successfulTools.add(toolCall.function.name);
                 extractHttpUrls(result).forEach((url) => verifiedUrls.add(url));
@@ -269,22 +298,21 @@ export async function processContractorMessage(
             } catch {
               // Non-JSON tool output is not considered a verified mutation.
             }
-            return {
+            toolResults.push({
               role: "tool" as const,
               tool_call_id: toolCall.id,
               content: result,
-            };
+            });
           } catch (toolErr) {
             const msg = formatAgentError(toolErr);
             console.error("[contractor-agent] tool error", toolCall.function.name, msg);
-            return {
+            toolResults.push({
               role: "tool" as const,
               tool_call_id: toolCall.id,
               content: `Tool error: ${msg}`,
-            };
+            });
           }
-        }),
-      );
+      }
       messages.push(...toolResults);
     }
 
