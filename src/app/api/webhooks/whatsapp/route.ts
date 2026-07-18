@@ -45,6 +45,20 @@ type WebhookLogInput = {
   raw?: unknown;
 };
 
+type InboundMedia = { url?: string | null; content_type?: string | null };
+
+const MAX_MEDIA_BYTES = 50 * 1024 * 1024;
+const MEDIA_EXTENSIONS: Record<string, { type: "image" | "video"; extension: string }> = {
+  "image/jpeg": { type: "image", extension: "jpg" },
+  "image/png": { type: "image", extension: "png" },
+  "image/webp": { type: "image", extension: "webp" },
+  "image/gif": { type: "image", extension: "gif" },
+  "video/mp4": { type: "video", extension: "mp4" },
+  "video/quicktime": { type: "video", extension: "mov" },
+  "video/webm": { type: "video", extension: "webm" },
+  "video/3gpp": { type: "video", extension: "3gp" },
+};
+
 function getVerifyToken() {
   return process.env.WHATSAPP_VERIFY_TOKEN?.trim() ?? "";
 }
@@ -106,6 +120,81 @@ function getInboundContent(data: TelnyxPayload | null): {
     text: (data?.text ?? body?.text?.body ?? caption ?? "").trim(),
     media: [...(data?.media ?? []), ...nestedMedia],
   };
+}
+
+async function persistTelnyxMedia(args: {
+  admin: ReturnType<typeof createSupabaseAdminClient>;
+  userId: string;
+  messageId: string | null;
+  media: InboundMedia;
+  caption: string | null;
+}): Promise<{ id: string; type: "image" | "video" }> {
+  if (!args.media.url) throw new Error("Telnyx media URL is missing");
+
+  if (args.messageId) {
+    const { data: existing } = await args.admin
+      .from("project_media")
+      .select("id, media_type")
+      .eq("user_id", args.userId)
+      .eq("whatsapp_message_id", args.messageId)
+      .maybeSingle();
+    if (existing?.id && (existing.media_type === "image" || existing.media_type === "video")) {
+      return { id: existing.id as string, type: existing.media_type };
+    }
+  }
+
+  let response = await fetch(args.media.url, {
+    headers: { Authorization: `Bearer ${getTelnyxApiKey()}` },
+  });
+  // Telnyx may provide either an authenticated endpoint or a short-lived signed URL.
+  if (!response.ok) response = await fetch(args.media.url);
+  if (!response.ok) throw new Error(`Telnyx media download failed (${response.status})`);
+
+  const mimeType = (response.headers.get("content-type") ?? args.media.content_type ?? "")
+    .split(";", 1)[0]
+    .trim()
+    .toLowerCase();
+  const format = MEDIA_EXTENSIONS[mimeType];
+  if (!format) throw new Error(`Unsupported Telnyx media type: ${mimeType || "unknown"}`);
+
+  const declaredSize = Number(response.headers.get("content-length") ?? 0);
+  if (declaredSize > MAX_MEDIA_BYTES) throw new Error("Media exceeds the 50 MB upload limit");
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (!bytes.length || bytes.length > MAX_MEDIA_BYTES) throw new Error("Media is empty or exceeds the 50 MB upload limit");
+
+  const storagePath = `${args.userId}/${crypto.randomUUID()}.${format.extension}`;
+  const { error: uploadError } = await args.admin.storage
+    .from("project-media")
+    .upload(storagePath, bytes, { contentType: mimeType });
+  if (uploadError) throw new Error(`Storage upload failed: ${uploadError.message}`);
+
+  const { data: last } = await args.admin
+    .from("project_media")
+    .select("sort_order")
+    .eq("user_id", args.userId)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const { data, error: insertError } = await args.admin
+    .from("project_media")
+    .insert({
+      user_id: args.userId,
+      project_id: null,
+      storage_path: storagePath,
+      media_type: format.type,
+      mime_type: mimeType,
+      description: args.caption,
+      whatsapp_message_id: args.messageId,
+      file_size_bytes: bytes.length,
+      sort_order: (last?.sort_order ?? -1) + 1,
+    })
+    .select("id")
+    .single();
+  if (insertError) {
+    await args.admin.storage.from("project-media").remove([storagePath]);
+    throw new Error(`Media record creation failed: ${insertError.message}`);
+  }
+  return { id: data.id as string, type: format.type };
 }
 
 function formatWhatsAppReply(value: string): string {
@@ -284,14 +373,25 @@ async function handleTelnyxInbound(data: TelnyxPayload | null, raw: TelnyxWebhoo
     return;
   }
 
-  const agentText = [
-    text,
-    ...media.map((m) => {
-      const type = m.content_type ?? "media";
-      const url = m.url ?? "";
-      return `[${type} received${url ? `: ${url}` : ""}]`;
-    }),
-  ].filter(Boolean).join("\n\n");
+  const caption = data?.body?.image?.caption ?? data?.body?.video?.caption ?? null;
+  const mediaContexts: string[] = [];
+  const uniqueMedia = media.filter((item, index, all) => item.url && all.findIndex((candidate) => candidate.url === item.url) === index);
+  for (const item of uniqueMedia) {
+    try {
+      const saved = await persistTelnyxMedia({ admin, userId, messageId, media: item, caption });
+      const label = saved.type === "video" ? "Video" : "Image";
+      const emoji = saved.type === "video" ? "🎥" : "📸";
+      mediaContexts.push(`${emoji} ${label} received successfully. Media ID: ${saved.id}`);
+      await logWebhookEvent({ eventType: "message.received", result: "media-persisted", userId, from, to, messageId, summary: `${saved.type}:${saved.id}` });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const type = item.content_type?.includes("video") ? "Video" : "Image";
+      mediaContexts.push(`${type} could not be saved. Do not attempt to attach it; explain that the upload failed.`);
+      await logWebhookEvent({ eventType: "message.received", result: "media-persist-failed", userId, from, to, messageId, error: message });
+    }
+  }
+
+  const agentText = [text, ...mediaContexts].filter(Boolean).join("\n\n");
 
   const commandText = agentText.trim();
   if (!commandText) {
