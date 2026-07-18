@@ -270,6 +270,7 @@ export function SettingsPageClient({ userId, profile }: { userId: string; profil
     inferPhoneCountryCode(profile.phone_e164 ?? profile.phone) || DEFAULT_PHONE_COUNTRY_CODE,
   );
   const [zip, setZip] = React.useState(profile.zip_code ?? "");
+  const [savingZip, setSavingZip] = React.useState(false);
   const [quotesPerMonth, setQuotesPerMonth] = React.useState<QuotesPerMonth>(
     (profile.quotes_per_month ?? "1-5") as QuotesPerMonth,
   );
@@ -333,6 +334,25 @@ export function SettingsPageClient({ userId, profile }: { userId: string; profil
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Failed to save profile";
       toast.error(message);
+    }
+  }
+
+  async function onSaveZip() {
+    const zipCode = zip.trim();
+    if (!zipCode) {
+      toast.error("Business ZIP code is required.");
+      return;
+    }
+    setSavingZip(true);
+    try {
+      const { error } = await supabase.from("profiles").update({ zip_code: zipCode }).eq("id", userId);
+      if (error) throw error;
+      toast.success("Business ZIP code updated");
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update ZIP code");
+    } finally {
+      setSavingZip(false);
     }
   }
 
@@ -450,6 +470,11 @@ export function SettingsPageClient({ userId, profile }: { userId: string; profil
                 maxLength={10}
               />
               <p className="text-xs text-slate-400">Required for local searches. The AI uses it unless you explicitly name another area.</p>
+              <div>
+                <Button type="button" size="sm" onClick={() => void onSaveZip()} disabled={savingZip}>
+                  {savingZip ? "Saving…" : "Save ZIP code"}
+                </Button>
+              </div>
             </div>
           </div>
 

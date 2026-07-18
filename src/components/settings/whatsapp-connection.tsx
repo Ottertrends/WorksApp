@@ -238,7 +238,7 @@ function LineBlock({
       if (qr) setQrDataUrl(qr);
       else
         toast.error(
-          "No QR code returned. Check Evolution API logs and env (EVOLUTION_API_URL / KEY).",
+          "No QR code returned. Check your WhatsApp connection settings and try again.",
         );
       startPolling();
     } catch (e: unknown) {
@@ -456,13 +456,13 @@ function LineBlock({
         <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-6 py-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900">
           {slot === "primary" ? (
             <>
-              Click <strong>Connect WhatsApp</strong> to create your primary Evolution
+              Click <strong>Connect WhatsApp</strong> to connect your primary WhatsApp
               instance and show the QR code.
             </>
           ) : (
             <>
               Use <strong>Connect second line</strong> for your other WhatsApp number
-              (separate Evolution instance).
+              line.
             </>
           )}
         </div>
@@ -483,7 +483,7 @@ function LineBlock({
                   : "Disconnect second line?"}
               </DialogTitle>
               <DialogDescription>
-                This logs out of Evolution for this line and deletes that instance.
+                This disconnects this WhatsApp line.
                 The other line (if any) stays connected.
               </DialogDescription>
             </DialogHeader>

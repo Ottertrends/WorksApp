@@ -110,7 +110,7 @@ export async function POST(request: Request) {
     let authoritativeLineItems: ProposalData["lineItems"] = [];
     if (invoiceIds.length > 0) {
       const { data: lineItems } = await admin
-        .from("invoice_line_items")
+        .from("invoice_items")
         .select("description, quantity, unit_price, total")
         .in("invoice_id", invoiceIds)
         .limit(30);

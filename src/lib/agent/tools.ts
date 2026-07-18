@@ -379,6 +379,19 @@ export const CONTRACTOR_TOOLS: ContractorTool[] = [
       type: "object",
       properties: {
         project_id: { type: "string", description: "UUID of the project to generate a proposal for" },
+        line_items: {
+          type: "array",
+          description: "Exact proposal-only quote items from the contractor. Use this whenever quantities or prices were provided in chat; these never modify invoices.",
+          items: {
+            type: "object",
+            properties: {
+              description: { type: "string" },
+              quantity: { type: "number", description: "Quoted quantity" },
+              unit_price: { type: "number", description: "Quoted unit price in USD" },
+            },
+            required: ["description", "quantity", "unit_price"],
+          },
+        },
         mode: {
           type: "string",
           enum: ["strict", "custom"],

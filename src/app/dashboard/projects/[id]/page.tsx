@@ -181,9 +181,7 @@ export default async function ProjectDetailPage({
       )}
 
       {/* Media gallery */}
-      {mediaWithUrls.length > 0 && (
-        <MediaGallery items={mediaWithUrls} projectId={projectId} />
-      )}
+      <MediaGallery items={mediaWithUrls} projectId={projectId} />
 
       {/* Older invoices (read-only table) */}
       {olderInvoices.length > 0 && (

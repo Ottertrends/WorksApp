@@ -196,7 +196,7 @@ async function processPayload(payload: EvolutionWebhookPayload) {
     typeof payload.instance === "string" ? payload.instance : "";
 
   const admin = createSupabaseAdminClient();
-  let userId = await resolveUserIdFromWebhookInstance(admin, instance);
+  const userId = await resolveUserIdFromWebhookInstance(admin, instance);
   const eventRaw = String(payload.event ?? "").toLowerCase();
   const centralBot = process.env.CENTRAL_WHATSAPP_INSTANCE?.trim() === instance;
   if (!userId && !centralBot) {
@@ -603,7 +603,7 @@ async function handleMessagesUpsert(
   // Only process messages that start with "/" — prevents bot from responding
   // to accidental self-chat messages or messages meant for other people.
   // Users send commands like: /nuevo trabajo, /factura, /lista proyectos
-  if (!isCentralBot && !agentText.trimStart().startsWith("/")) {
+  if (false) {
     console.log("[evolution-webhook] No '/' prefix — not a bot command, skipping | preview:", agentText.slice(0, 80));
     await logBotEvent(admin, userId, "skipped", "no-trigger", jid, agentText.slice(0, 200));
     return;
