@@ -10,6 +10,7 @@ import type { ContentBlock, ProposalLineItem } from "@/lib/types/proposals";
 import { getAppBaseUrl } from "@/lib/url/app-url";
 import { authoritativeProposalLineItems } from "@/lib/proposals/line-items";
 import { normalizePhoneE164 } from "@/lib/phone/normalize";
+import { syncRecurringRuleToGoogle } from "@/lib/integrations/google-calendar-sync";
 
 function jsonResult(data: unknown) {
   return JSON.stringify(data);
@@ -814,7 +815,7 @@ export async function executeTool(
     case "list_calendar_events": {
       const { data: rules, error } = await admin
         .from("recurring_projects")
-        .select("id, project_id, recurrence_type, day_of_week, interval_days, day_of_month, manual_dates, next_occurrence, event_time, notes, projects(name)")
+        .select("id, project_id, recurrence_type, day_of_week, interval_days, day_of_month, week_of_month, manual_dates, next_occurrence, event_time, notes, projects(name)")
         .eq("user_id", userId)
         .eq("active", true)
         .order("next_occurrence", { ascending: true })
@@ -829,6 +830,7 @@ export async function executeTool(
         day_of_week: r.day_of_week,
         interval_days: r.interval_days,
         day_of_month: r.day_of_month,
+        week_of_month: r.week_of_month,
         manual_dates: r.manual_dates,
         next_occurrence: r.next_occurrence,
         event_time: r.event_time,
@@ -839,9 +841,9 @@ export async function executeTool(
 
     case "create_calendar_event": {
       const projectId = String(input.project_id ?? "").trim() || null;
-      const recurrenceType = String(input.recurrence_type ?? "").trim() as "weekly" | "interval" | "monthly" | "manual";
-      if (!["weekly", "interval", "monthly", "manual"].includes(recurrenceType)) {
-        return jsonResult({ error: "recurrence_type must be one of: weekly, interval, monthly, manual" });
+      const recurrenceType = String(input.recurrence_type ?? "").trim() as "weekly" | "interval" | "monthly" | "monthly_weekday" | "manual";
+      if (!["weekly", "interval", "monthly", "monthly_weekday", "manual"].includes(recurrenceType)) {
+        return jsonResult({ error: "recurrence_type must be one of: weekly, interval, monthly, monthly_weekday, manual" });
       }
 
       const manualDates = Array.isArray(input.manual_dates) ? (input.manual_dates as string[]) : null;
@@ -861,6 +863,10 @@ export async function executeTool(
       const dayOfWeek = typeof input.day_of_week === "number" ? input.day_of_week : null;
       const intervalDays = typeof input.interval_days === "number" ? input.interval_days : null;
       const dayOfMonth = typeof input.day_of_month === "number" ? input.day_of_month : null;
+      const weekOfMonth = typeof input.week_of_month === "number" ? input.week_of_month : null;
+      if (recurrenceType === "monthly_weekday" && (dayOfWeek == null || dayOfWeek < 0 || dayOfWeek > 6 || weekOfMonth == null || weekOfMonth < 1 || weekOfMonth > 5)) {
+        return jsonResult({ error: "monthly_weekday requires day_of_week (0-6) and week_of_month (1-5)" });
+      }
 
       // Inline computeFirstOccurrence (mirrors logic in /api/recurring/route.ts)
       function computeFirstOccurrence(): string {
@@ -879,6 +885,17 @@ export async function executeTool(
           const d = new Date(start);
           d.setDate(dayOfMonth);
           if (d < start) d.setMonth(d.getMonth() + 1);
+          return d.toISOString().slice(0, 10);
+        }
+        if (recurrenceType === "monthly_weekday" && dayOfWeek != null && weekOfMonth != null) {
+          const d = new Date(start.getFullYear(), start.getMonth(), 1);
+          const offset = (dayOfWeek - d.getDay() + 7) % 7;
+          d.setDate(1 + offset + (weekOfMonth - 1) * 7);
+          if (d < start) {
+            d.setMonth(d.getMonth() + 1, 1);
+            const nextOffset = (dayOfWeek - d.getDay() + 7) % 7;
+            d.setDate(1 + nextOffset + (weekOfMonth - 1) * 7);
+          }
           return d.toISOString().slice(0, 10);
         }
         if (recurrenceType === "manual" && manualDates?.length) {
@@ -902,6 +919,7 @@ export async function executeTool(
           day_of_week: dayOfWeek,
           interval_days: intervalDays,
           day_of_month: dayOfMonth,
+          week_of_month: weekOfMonth,
           manual_dates: manualDates ?? [],
           start_date: startDate,
           next_occurrence: nextOccurrence,
@@ -912,6 +930,11 @@ export async function executeTool(
         .single();
 
       if (error) return jsonResult({ error: error.message });
+
+      if (data?.id) {
+        const sync = await syncRecurringRuleToGoogle(data.id as string);
+        if (!sync.ok) console.warn("[agent] Google Calendar sync failed:", sync.error);
+      }
 
       // Note: Google Calendar sync handled separately by the calendar UI
 

@@ -8,6 +8,10 @@ interface RuleRow {
   user_id: string;
   project_id: string;
   recurrence_type: string;
+  day_of_week: number | null;
+  interval_days: number | null;
+  day_of_month: number | null;
+  week_of_month: number | null;
   next_occurrence: string;
   event_time: string | null;
   notes: string | null;
@@ -22,7 +26,7 @@ function addDays(isoDate: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-function buildRrule(type: string, day_of_week: number | null, interval_days: number | null, day_of_month: number | null): string[] | undefined {
+function buildRrule(type: string, day_of_week: number | null, interval_days: number | null, day_of_month: number | null, week_of_month: number | null): string[] | undefined {
   if (type === "weekly" && day_of_week != null) {
     const days = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
     return [`RRULE:FREQ=WEEKLY;BYDAY=${days[day_of_week]}`];
@@ -32,6 +36,10 @@ function buildRrule(type: string, day_of_week: number | null, interval_days: num
   }
   if (type === "monthly" && day_of_month != null) {
     return [`RRULE:FREQ=MONTHLY;BYMONTHDAY=${day_of_month}`];
+  }
+  if (type === "monthly_weekday" && day_of_week != null && week_of_month != null) {
+    const days = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+    return [`RRULE:FREQ=MONTHLY;BYDAY=${days[day_of_week]};BYSETPOS=${week_of_month}`];
   }
   return undefined;
 }
@@ -80,11 +88,12 @@ export async function syncRecurringRuleToGoogle(ruleId: string): Promise<{ ok: b
   const dayOfWeek = rule.day_of_week as number | null;
   const intervalDays = rule.interval_days as number | null;
   const dayOfMonth = rule.day_of_month as number | null;
+  const weekOfMonth = rule.week_of_month as number | null;
 
   const recurrence =
     r.recurrence_type === "manual"
       ? undefined
-      : buildRrule(r.recurrence_type, dayOfWeek, intervalDays, dayOfMonth);
+      : buildRrule(r.recurrence_type, dayOfWeek, intervalDays, dayOfMonth, weekOfMonth);
 
   // All-day events avoid fragile timezone handling; time is noted in description.
   const timeNote = r.event_time ? ` @ ${r.event_time}` : "";

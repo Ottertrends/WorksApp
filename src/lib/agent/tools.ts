@@ -330,8 +330,8 @@ export const CONTRACTOR_TOOLS: ContractorTool[] = [
         project_id: { type: "string", description: "UUID of the project this event belongs to (optional — omit for internal tasks not linked to a project)" },
         recurrence_type: {
           type: "string",
-          enum: ["weekly", "interval", "monthly", "manual"],
-          description: "weekly = same day every week; interval = every N days; monthly = same day of month; manual = specific dates",
+          enum: ["weekly", "interval", "monthly", "monthly_weekday", "manual"],
+          description: "weekly = same day every week; interval = every N days; monthly = same numbered day; monthly_weekday = nth weekday (such as third Thursday); manual = specific dates",
         },
         day_of_week: {
           type: "number",
@@ -344,6 +344,10 @@ export const CONTRACTOR_TOOLS: ContractorTool[] = [
         day_of_month: {
           type: "number",
           description: "For monthly: day of month (1–28)",
+        },
+        week_of_month: {
+          type: "number",
+          description: "For monthly_weekday: ordinal weekday in month (1=first through 5=fifth). Requires day_of_week.",
         },
         manual_dates: {
           type: "array",

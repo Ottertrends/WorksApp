@@ -13,6 +13,7 @@ function advanceDate(
   day_of_week: number | null,
   interval_days: number | null,
   day_of_month: number | null,
+  week_of_month: number | null,
   manual_dates: string[] | null,
   from: string,
 ): string {
@@ -32,6 +33,12 @@ function advanceDate(
   if (recurrence_type === "monthly" && day_of_month != null) {
     d.setMonth(d.getMonth() + 1);
     d.setDate(day_of_month);
+    return d.toISOString().slice(0, 10);
+  }
+  if (recurrence_type === "monthly_weekday" && day_of_week != null && week_of_month != null) {
+    d.setMonth(d.getMonth() + 1, 1);
+    const offset = (day_of_week - d.getDay() + 7) % 7;
+    d.setDate(1 + offset + (week_of_month - 1) * 7);
     return d.toISOString().slice(0, 10);
   }
 
@@ -63,7 +70,7 @@ export async function GET(req: NextRequest) {
   // Fetch all active rules with next_occurrence <= today
   const { data: overdue, error } = await admin
     .from("recurring_projects")
-    .select("id, recurrence_type, day_of_week, interval_days, day_of_month, manual_dates, next_occurrence")
+    .select("id, recurrence_type, day_of_week, interval_days, day_of_month, week_of_month, manual_dates, next_occurrence")
     .eq("active", true)
     .lte("next_occurrence", today);
 
@@ -83,6 +90,7 @@ export async function GET(req: NextRequest) {
         rule.day_of_week as number | null,
         rule.interval_days as number | null,
         rule.day_of_month as number | null,
+        rule.week_of_month as number | null,
         rule.manual_dates as string[] | null,
         next,
       );

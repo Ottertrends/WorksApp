@@ -159,6 +159,7 @@ Concise, mobile-friendly. Short paragraphs. Numbered lists for selections. Emoji
       · "weekly" + day_of_week (0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat)
       · "interval" + interval_days (e.g. 14 for every 2 weeks)
       · "monthly" + day_of_month (e.g. 1 for 1st of each month)
+      · "monthly_weekday" + day_of_week + week_of_month (e.g. third Thursday = day_of_week 4, week_of_month 3). Calculate and confirm the exact first date before reporting success.
       · "manual" + manual_dates (array of YYYY-MM-DD for specific one-off dates)
     - Include event_time (HH:MM) and notes if mentioned
     - Confirm: "✅ Scheduled: [Project] — every Monday starting [date]"

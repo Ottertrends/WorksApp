@@ -37,6 +37,7 @@ export default async function CalendarPage() {
     day_of_week: r.day_of_week as number | null,
     interval_days: r.interval_days as number | null,
     day_of_month: r.day_of_month as number | null,
+    week_of_month: r.week_of_month as number | null,
     manual_dates: (r.manual_dates as string[] | null) ?? null,
     start_date: r.start_date as string,
     next_occurrence: r.next_occurrence as string,

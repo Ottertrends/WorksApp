@@ -63,6 +63,12 @@ function occurrencesInRange(rule: RecurringRule, start: Date, end: Date): Date[]
       if (d >= start) results.push(new Date(d));
       d.setMonth(d.getMonth() + 1);
     }
+  } else if (rule.recurrence_type === "monthly_weekday" && rule.day_of_week != null && rule.week_of_month != null) {
+    const d = new Date(start.getFullYear(), start.getMonth(), 1);
+    const setOrdinal = () => d.setDate(1 + ((rule.day_of_week! - d.getDay() + 7) % 7) + (rule.week_of_month! - 1) * 7);
+    setOrdinal();
+    if (d < start) { d.setMonth(d.getMonth() + 1, 1); setOrdinal(); }
+    while (d <= end) { if (d >= start) results.push(new Date(d)); d.setMonth(d.getMonth() + 1, 1); setOrdinal(); }
   } else if (rule.recurrence_type === "manual" && rule.manual_dates?.length) {
     const startKey = start.toISOString().slice(0, 10);
     const endKey = end.toISOString().slice(0, 10);
@@ -231,6 +237,7 @@ export function CalendarClient({ initialRules, projects, initialNotificationsEna
     if (r.recurrence_type === "weekly") return `Every ${DAY_LABELS[r.day_of_week ?? 0]}`;
     if (r.recurrence_type === "interval") return `Every ${r.interval_days} days`;
     if (r.recurrence_type === "monthly") return `Monthly on day ${r.day_of_month}`;
+    if (r.recurrence_type === "monthly_weekday") return `Every ${r.week_of_month}${r.week_of_month === 1 ? "st" : r.week_of_month === 2 ? "nd" : r.week_of_month === 3 ? "rd" : "th"} ${DAY_LABELS[r.day_of_week ?? 0]}`;
     if (r.recurrence_type === "manual") return `Manual (${r.manual_dates?.length ?? 0} dates)`;
     return "";
   }

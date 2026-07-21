@@ -7,10 +7,11 @@ export interface RecurringRule {
   id: string;
   project_id: string | null;
   project_name: string | null;
-  recurrence_type: "weekly" | "interval" | "monthly" | "manual";
+  recurrence_type: "weekly" | "interval" | "monthly" | "monthly_weekday" | "manual";
   day_of_week: number | null;
   interval_days: number | null;
   day_of_month: number | null;
+  week_of_month: number | null;
   manual_dates: string[] | null;
   start_date: string;
   next_occurrence: string;
@@ -30,6 +31,7 @@ function computeFirstOccurrence(
   day_of_week: number | null,
   interval_days: number | null,
   day_of_month: number | null,
+  week_of_month: number | null,
   manual_dates: string[] | null,
   start_date: string,
 ): string {
@@ -51,6 +53,16 @@ function computeFirstOccurrence(
     const d = new Date(start);
     d.setDate(day_of_month);
     if (d < start) d.setMonth(d.getMonth() + 1);
+    return d.toISOString().slice(0, 10);
+  }
+  if (recurrence_type === "monthly_weekday" && day_of_week != null && week_of_month != null) {
+    const d = new Date(start.getFullYear(), start.getMonth(), 1);
+    const offset = (day_of_week - d.getDay() + 7) % 7;
+    d.setDate(1 + offset + (week_of_month - 1) * 7);
+    if (d < start) {
+      d.setMonth(d.getMonth() + 1, 1);
+      d.setDate(1 + ((day_of_week - d.getDay() + 7) % 7) + (week_of_month - 1) * 7);
+    }
     return d.toISOString().slice(0, 10);
   }
 
@@ -88,6 +100,7 @@ export async function GET() {
     day_of_week: r.day_of_week as number | null,
     interval_days: r.interval_days as number | null,
     day_of_month: r.day_of_month as number | null,
+    week_of_month: r.week_of_month as number | null,
     manual_dates: (r.manual_dates as string[] | null) ?? null,
     start_date: r.start_date as string,
     next_occurrence: r.next_occurrence as string,
@@ -108,17 +121,18 @@ export async function POST(request: Request) {
 
   const body = (await request.json()) as {
     projectId: string;
-    recurrence_type: "weekly" | "interval" | "monthly" | "manual";
+    recurrence_type: "weekly" | "interval" | "monthly" | "monthly_weekday" | "manual";
     day_of_week?: number | null;
     interval_days?: number | null;
     day_of_month?: number | null;
+    week_of_month?: number | null;
     manual_dates?: string[] | null;
     start_date?: string;
     event_time?: string | null;
     notes?: string | null;
   };
 
-  const { projectId, recurrence_type, day_of_week, interval_days, day_of_month, manual_dates } = body;
+  const { projectId, recurrence_type, day_of_week, interval_days, day_of_month, week_of_month, manual_dates } = body;
   if (!recurrence_type) {
     return NextResponse.json({ error: "recurrence_type required" }, { status: 400 });
   }
@@ -133,6 +147,7 @@ export async function POST(request: Request) {
     day_of_week ?? null,
     interval_days ?? null,
     day_of_month ?? null,
+    week_of_month ?? null,
     manual_dates ?? null,
     start_date,
   );
@@ -146,6 +161,7 @@ export async function POST(request: Request) {
       day_of_week: day_of_week ?? null,
       interval_days: interval_days ?? null,
       day_of_month: day_of_month ?? null,
+      week_of_month: week_of_month ?? null,
       manual_dates: manual_dates ?? [],
       start_date,
       next_occurrence,
