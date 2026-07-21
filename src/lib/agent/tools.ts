@@ -276,7 +276,7 @@ export const CONTRACTOR_TOOLS: ContractorTool[] = [
   {
     name: "attach_media_to_project",
     description:
-      "Associate a received photo or video with a project. Use after the contractor confirms which project the media belongs to.",
+      "Associate a received photo or video with a project. Stored media is not attached merely because it has a Media ID. Call this tool and report it as attached only after it returns ok:true.",
     input_schema: {
       type: "object",
       properties: {

@@ -58,6 +58,20 @@ type WebhookLogInput = {
 
 type InboundMedia = { url?: string | null; content_type?: string | null };
 
+type MediaUploadDiagnostic = {
+  mimeType: string;
+  byteSize: number;
+  storagePaths: string[];
+  attempts: Array<{ path: string; statusCode: string | null; error: string | null; message: string }>;
+};
+
+class MediaUploadError extends Error {
+  constructor(message: string, readonly diagnostic: MediaUploadDiagnostic) {
+    super(message);
+    this.name = "MediaUploadError";
+  }
+}
+
 const MAX_MEDIA_BYTES = 50 * 1024 * 1024;
 const MEDIA_EXTENSIONS: Record<string, { type: "image" | "video"; extension: string }> = {
   "image/jpeg": { type: "image", extension: "jpg" },
@@ -199,7 +213,7 @@ async function persistTelnyxMedia(args: {
   messageId: string | null;
   media: InboundMedia;
   caption: string | null;
-}): Promise<{ id: string; type: "image" | "video" }> {
+}): Promise<{ id: string; type: "image" | "video"; storagePath: string; byteSize: number; mimeType: string }> {
   if (!args.media.url) throw new Error("Telnyx media URL is missing");
 
   if (args.messageId) {
@@ -210,7 +224,7 @@ async function persistTelnyxMedia(args: {
       .eq("whatsapp_message_id", args.messageId)
       .maybeSingle();
     if (existing?.id && (existing.media_type === "image" || existing.media_type === "video")) {
-      return { id: existing.id as string, type: existing.media_type };
+      return { id: existing.id as string, type: existing.media_type, storagePath: "existing", byteSize: 0, mimeType: "existing" };
     }
   }
 
@@ -228,11 +242,28 @@ async function persistTelnyxMedia(args: {
   const bytes = Buffer.from(await response.arrayBuffer());
   if (!bytes.length || bytes.length > MAX_MEDIA_BYTES) throw new Error("Media is empty or exceeds the 50 MB upload limit");
 
-  const storagePath = `${args.userId}/${crypto.randomUUID()}.${format.extension}`;
-  const { error: uploadError } = await args.admin.storage
-    .from("project-media")
-    .upload(storagePath, bytes, { contentType: mimeType });
-  if (uploadError) throw new Error(`Storage upload failed: ${uploadError.message}`);
+  const diagnostic: MediaUploadDiagnostic = { mimeType, byteSize: bytes.length, storagePaths: [], attempts: [] };
+  let storagePath: string | null = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const candidatePath = `${args.userId}/${crypto.randomUUID()}.${format.extension}`;
+    diagnostic.storagePaths.push(candidatePath);
+    const { error: uploadError } = await args.admin.storage
+      .from("project-media")
+      .upload(candidatePath, bytes, { contentType: mimeType, upsert: false });
+    if (!uploadError) {
+      storagePath = candidatePath;
+      break;
+    }
+    const detail = uploadError as typeof uploadError & { statusCode?: string | number | null; error?: string | null };
+    diagnostic.attempts.push({
+      path: candidatePath,
+      statusCode: detail.statusCode == null ? null : String(detail.statusCode),
+      error: detail.error ?? null,
+      message: detail.message,
+    });
+    if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+  }
+  if (!storagePath) throw new MediaUploadError("Storage upload failed after 3 attempts", diagnostic);
 
   const { data: last } = await args.admin
     .from("project_media")
@@ -260,7 +291,7 @@ async function persistTelnyxMedia(args: {
     await args.admin.storage.from("project-media").remove([storagePath]);
     throw new Error(`Media record creation failed: ${insertError.message}`);
   }
-  return { id: data.id as string, type: format.type };
+  return { id: data.id as string, type: format.type, storagePath, byteSize: bytes.length, mimeType };
 }
 
 function formatWhatsAppReply(value: string): string {
@@ -486,13 +517,17 @@ async function handleTelnyxInbound(data: TelnyxPayload | null, raw: TelnyxWebhoo
       const label = saved.type === "video" ? "Video" : "Image";
       persistedMediaTypes.push(saved.type);
       const emoji = saved.type === "video" ? "🎥" : "📸";
-      mediaContexts.push(`${emoji} ${label} received successfully. Media ID: ${saved.id}`);
-      await logWebhookEvent({ eventType: "message.received", result: "media-persisted", userId, from, to, messageId, summary: `${saved.type}:${saved.id}` });
+      mediaContexts.push(`${emoji} ${label} was saved as unassigned media. Media ID: ${saved.id}. It is NOT attached to a project yet: call attach_media_to_project and only say it is attached after that tool returns ok:true.`);
+      await logWebhookEvent({ eventType: "message.received", result: "media-persisted", userId, from, to, messageId, summary: `${saved.type}:${saved.id};mime=${saved.mimeType};bytes=${saved.byteSize};path=${saved.storagePath}` });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const type = item.content_type?.includes("video") ? "Video" : "Image";
       mediaContexts.push(`${type} could not be saved. Do not attempt to attach it; explain that the upload failed.`);
-      await logWebhookEvent({ eventType: "message.received", result: "media-persist-failed", userId, from, to, messageId, error: message });
+      const diagnostic = error instanceof MediaUploadError ? error.diagnostic : null;
+      const errorDetail = diagnostic
+        ? `${message}; mime=${diagnostic.mimeType}; bytes=${diagnostic.byteSize}; paths=${diagnostic.storagePaths.join(",")}; attempts=${JSON.stringify(diagnostic.attempts)}`
+        : message;
+      await logWebhookEvent({ eventType: "message.received", result: "media-persist-failed", userId, from, to, messageId, summary: diagnostic ? `mime=${diagnostic.mimeType};bytes=${diagnostic.byteSize};paths=${diagnostic.storagePaths.join(",")}` : null, error: errorDetail });
     }
   }
 
