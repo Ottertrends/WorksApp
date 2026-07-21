@@ -96,10 +96,12 @@ function toOpenAITools(): ChatCompletionTool[] {
 }
 
 export async function processContractorMessage(
-  userId: string,
+  actorUserId: string,
   messageText: string,
   history: { role: "user" | "assistant"; content: string }[],
+  workspaceUserId = actorUserId,
 ): Promise<AgentRunResult> {
+  const userId = actorUserId;
   const fallback =
     "Sorry, I'm having trouble processing that. Please try again in a moment.";
 
@@ -116,7 +118,7 @@ export async function processContractorMessage(
     const admin = createSupabaseAdminClient();
     const [{ data: memRow }, { data: profRow }] = await Promise.all([
       admin.from("agent_memory").select("memory_text, updated_at").eq("user_id", userId).maybeSingle(),
-      admin.from("profiles").select("zip_code, city, state, stripe_connect_account_id, stripe_connect_charges_enabled").eq("id", userId).maybeSingle(),
+      admin.from("profiles").select("zip_code, city, state, stripe_connect_account_id, stripe_connect_charges_enabled").eq("id", workspaceUserId).maybeSingle(),
     ]);
 
     const memoryBlock = memRow?.memory_text?.trim()
@@ -284,7 +286,7 @@ export async function processContractorMessage(
           }
 
           try {
-            const result = await executeTool(userId, toolCall.function.name, input);
+            const result = await executeTool(actorUserId, toolCall.function.name, input, workspaceUserId);
             try {
               const parsed = JSON.parse(result) as { ok?: boolean; error?: unknown; count?: unknown };
               if (toolCall.function.name === "list_price_book" && parsed.ok === true) {

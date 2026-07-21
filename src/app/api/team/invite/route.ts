@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isPremiumTeam, maxTeamSeats } from "@/lib/billing/access";
+import { normalizePhoneE164 } from "@/lib/phone/normalize";
 
 export async function POST(req: NextRequest) {
   const supabase = await createSupabaseServerClient();
@@ -11,8 +12,11 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const email: string = (body.email ?? "").trim().toLowerCase();
   const phone: string = (body.phone ?? "").trim() || "";
+  const zipCode: string = (body.zip_code ?? "").trim();
 
-  if (!email) return NextResponse.json({ error: "email is required" }, { status: 400 });
+  if (!email || !phone || !zipCode) return NextResponse.json({ error: "email, phone, and ZIP code are required" }, { status: 400 });
+  const phoneE164 = normalizePhoneE164(phone);
+  if (!phoneE164) return NextResponse.json({ error: "Enter a valid phone number including country code." }, { status: 400 });
 
   const admin = createSupabaseAdminClient();
 
@@ -58,6 +62,11 @@ export async function POST(req: NextRequest) {
   if (existing && existing.status !== "removed") {
     return NextResponse.json({ error: "This email has already been invited." }, { status: 409 });
   }
+  const [{ data: profileUsingPhone }, { data: inviteUsingPhone }] = await Promise.all([
+    admin.from("profiles").select("id").eq("phone_e164", phoneE164).maybeSingle(),
+    admin.from("team_members").select("id").eq("invited_phone_e164", phoneE164).in("status", ["pending", "active"]).maybeSingle(),
+  ]);
+  if (profileUsingPhone || (inviteUsingPhone && inviteUsingPhone.id !== existing?.id)) return NextResponse.json({ error: "This phone number is already used by an account or team invitation." }, { status: 409 });
 
   // Insert or re-activate the member row
   const { data: member, error: insertError } = await admin
@@ -66,7 +75,9 @@ export async function POST(req: NextRequest) {
       {
         owner_user_id: user.id,
         invited_email: email,
-        invited_phone: phone || null,
+        invited_phone: phoneE164,
+        invited_phone_e164: phoneE164,
+        invited_zip_code: zipCode,
         status: "pending",
         member_user_id: null,
         accepted_at: null,
@@ -83,7 +94,7 @@ export async function POST(req: NextRequest) {
 
   // Send Supabase invite email
   const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-    data: { owner_user_id: user.id, role: "team_member" },
+    data: { owner_user_id: user.id, role: "team_member", invitation: "team_seat" },
   });
 
   if (inviteError && !inviteError.message.includes("already been registered")) {

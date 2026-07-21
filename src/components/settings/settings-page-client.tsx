@@ -17,7 +17,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { IntegrationsSettings } from "@/components/settings/integrations-settings";
-import { WhatsAppConnection } from "@/components/settings/whatsapp-connection";
 import type { TaxRate } from "@/lib/types/database";
 import { CountryCodeSelect } from "@/components/phone/country-code-select";
 import { DEFAULT_PHONE_COUNTRY_CODE, inferPhoneCountryCode, phoneCountryValueToDialCode } from "@/lib/phone/country-codes";
@@ -288,6 +287,7 @@ export function SettingsPageClient({ userId, profile }: { userId: string; profil
       const normalizedPhone = normalizePhoneE164(phone, phoneCountryValueToDialCode(phoneCountryCode));
       if (!normalizedPhone) throw new Error("Enter a valid phone number.");
       if (!zip.trim()) throw new Error("Business ZIP code is required.");
+      const phoneChanged = normalizedPhone !== (profile.phone_e164 ?? profile.phone);
 
       const response = await fetch("/api/profile", {
         method: "PUT",
@@ -305,9 +305,13 @@ export function SettingsPageClient({ userId, profile }: { userId: string; profil
       });
       const result = (await response.json()) as { error?: string; email_confirmation_required?: boolean };
       if (!response.ok) throw new Error(result.error ?? "Failed to save profile");
-      toast.success(result.email_confirmation_required
-        ? "Profile saved. Confirm the email change from the message sent to your new address."
-        : t.toasts.profileUpdated);
+      toast.success(
+        result.email_confirmation_required
+          ? "Profile saved. Confirm the email change from the message sent to your new address."
+          : phoneChanged
+            ? "Phone number updated. Send your agent a WhatsApp message from the new number so it can reply to you there."
+            : t.toasts.profileUpdated,
+      );
       router.refresh();
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Failed to save profile";
@@ -424,7 +428,7 @@ export function SettingsPageClient({ userId, profile }: { userId: string; profil
                 />
               </div>
               <p className="text-xs text-slate-400">
-                Saved with country code for WhatsApp agent routing.
+                Used to route your WhatsApp agent. After changing it, send the agent a WhatsApp message from the new number so it can reply to you there.
               </p>
             </div>
           </div>
@@ -527,20 +531,6 @@ export function SettingsPageClient({ userId, profile }: { userId: string; profil
 
       {/* Tax Rates */}
       <TaxRatesCard />
-
-      {/* WhatsApp */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{ts.whatsapp}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <WhatsAppConnection
-            userId={userId}
-            primaryInitiallyConnected={!!profile.whatsapp_connected}
-            secondaryInitiallyConnected={!!profile.whatsapp_secondary_connected}
-          />
-        </CardContent>
-      </Card>
 
       {/* Notifications */}
       <NotificationsToggleCard initialEnabled={!!((profile as unknown as { notifications_enabled?: boolean | null }).notifications_enabled)} />

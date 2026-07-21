@@ -2,15 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
-import { Bot } from "lucide-react";
+import { useMemo } from "react";
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { MobileNav } from "@/components/layout/mobile-nav";
-import { AiChatWindow } from "@/components/ai-chat/ai-chat-window";
 import { supabase } from "@/lib/supabase/client";
 import { useLanguage } from "@/lib/i18n/client";
 import type { Profile } from "@/lib/types/database";
@@ -18,7 +16,6 @@ import type { Profile } from "@/lib/types/database";
 export function TopBar({ profile }: { profile: Profile }) {
   const router = useRouter();
   const { t, lang, setLang } = useLanguage();
-  const [chatOpen, setChatOpen] = useState(false);
 
   const initials = useMemo(() => {
     const parts = profile.full_name?.trim().split(/\s+/).filter(Boolean) ?? [];
@@ -54,15 +51,6 @@ export function TopBar({ profile }: { profile: Profile }) {
           <MobileNav userName={profile.full_name ?? undefined} userEmail={profile.email ?? undefined} />
 
           {/* AI Chat button — visible on all screen sizes */}
-          <button
-            type="button"
-            onClick={() => setChatOpen((o) => !o)}
-            className="flex items-center gap-1.5 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-xs font-semibold select-none"
-            title="Open AI Chat"
-          >
-            <Bot className="h-3.5 w-3.5" />
-            <span>AI Chat</span>
-          </button>
 
           {/* Theme toggle — hidden on mobile (moved to mobile drawer) */}
           <div className="hidden md:block">
@@ -108,7 +96,6 @@ export function TopBar({ profile }: { profile: Profile }) {
       </div>
     </header>
 
-    <AiChatWindow open={chatOpen} onClose={() => setChatOpen(false)} />
   </>
   );
 }

@@ -17,6 +17,7 @@ import {
   Settings as SettingsIcon,
   CreditCard,
   HelpCircle,
+  MessageCircle,
   CalendarDays,
   ClipboardList,
   Languages,
@@ -26,6 +27,7 @@ import Image from "next/image";
 import { useLanguage } from "@/lib/i18n/client";
 import { HelpModal } from "@/components/help/help-modal";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { WORKSAPP_AGENT_WHATSAPP_URL } from "@/lib/whatsapp/agent-contact";
 
 type Props = {
   userName?: string;
@@ -153,8 +155,17 @@ export function MobileNav({ userName, userEmail }: Props) {
           </div>
         </div>
 
-        {/* Help button at the bottom of the drawer */}
+        {/* Talk to Agent + Help at the bottom of the drawer */}
         <div className="shrink-0 p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
+          <a
+            href={WORKSAPP_AGENT_WHATSAPP_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-4 px-4 py-3.5 w-full rounded-xl text-base font-medium text-primary dark:text-primary hover:bg-primary/10 dark:hover:bg-primary/20 transition-colors"
+          >
+            <MessageCircle className="h-5 w-5 shrink-0" />
+            <span>Talk to Agent</span>
+          </a>
           <button
             type="button"
             onClick={() => { setOpen(false); setHelpOpen(true); }}

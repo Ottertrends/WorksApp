@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isPremium, maxMonthlyMessages } from "@/lib/billing/access";
 import { processContractorMessage } from "@/lib/agent/contractor-agent";
+import { resolveWorkspaceContext } from "@/lib/workspace/context";
 
 export const maxDuration = 60; // allow up to 60s for agent tool loops
 
@@ -65,7 +66,8 @@ export async function POST(req: NextRequest) {
   }));
 
   // Run the full contractor agent (same as WhatsApp)
-  const result = await processContractorMessage(user.id, lastUserMessage.content, history);
+  const workspace = await resolveWorkspaceContext(user.id);
+  const result = await processContractorMessage(workspace.actorUserId, lastUserMessage.content, history, workspace.workspaceUserId);
 
   // Track message usage (fire-and-forget)
   try {

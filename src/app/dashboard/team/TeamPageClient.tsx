@@ -7,6 +7,7 @@ interface TeamMember {
   id: string;
   invited_email: string;
   invited_phone: string | null;
+  invited_zip_code: string | null;
   status: "pending" | "active" | "removed";
   accepted_at: string | null;
   invited_at: string;
@@ -21,6 +22,7 @@ export function TeamPageClient({ initialMembers, maxSeats }: Props) {
   const [members, setMembers] = useState<TeamMember[]>(initialMembers);
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [zipCode, setZipCode] = useState("");
   const [inviting, setInviting] = useState(false);
   const [inviteMsg, setInviteMsg] = useState<{ type: "ok" | "error"; text: string } | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
@@ -39,13 +41,14 @@ export function TeamPageClient({ initialMembers, maxSeats }: Props) {
       const res = await fetch("/api/team/invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), phone: phone.trim() }),
+        body: JSON.stringify({ email: email.trim(), phone: phone.trim(), zip_code: zipCode.trim() }),
       });
       const data = await res.json();
       if (res.ok) {
         setInviteMsg({ type: "ok", text: `Invite sent to ${email.trim()}` });
         setEmail("");
         setPhone("");
+        setZipCode("");
         // Refresh members list
         const refreshRes = await fetch("/api/team/members");
         if (refreshRes.ok) setMembers(await refreshRes.json());
@@ -104,7 +107,8 @@ export function TeamPageClient({ initialMembers, maxSeats }: Props) {
 
       {/* Invite form */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
-        <h2 className="font-semibold text-slate-900 dark:text-white mb-4">Invite Team Member</h2>
+        <h2 className="font-semibold text-slate-900 dark:text-white mb-1">Set up a team seat</h2>
+        <p className="text-sm text-slate-500 mb-4">They receive a secure activation email and choose their own password.</p>
         <form onSubmit={invite} className="flex flex-col gap-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1">
@@ -120,7 +124,7 @@ export function TeamPageClient({ initialMembers, maxSeats }: Props) {
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs text-slate-500 uppercase font-medium">WhatsApp Phone (optional)</label>
+              <label className="text-xs text-slate-500 uppercase font-medium">Phone *</label>
               <input
                 type="tel"
                 value={phone}
@@ -129,13 +133,14 @@ export function TeamPageClient({ initialMembers, maxSeats }: Props) {
                 disabled={atLimit}
                 className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
               />
-              <span className="text-xs text-slate-400">Their WhatsApp number so the AI agent pairs to this workspace</span>
+              <span className="text-xs text-slate-400">Reserved for this member's private agent history.</span>
             </div>
+            <div className="flex flex-col gap-1"><label className="text-xs text-slate-500 uppercase font-medium">ZIP code *</label><input value={zipCode} onChange={(e) => setZipCode(e.target.value)} required placeholder="78640" disabled={atLimit} className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm" /></div>
           </div>
           <div>
             <button
               type="submit"
-              disabled={inviting || atLimit || !email.trim()}
+              disabled={inviting || atLimit || !email.trim() || !phone.trim() || !zipCode.trim()}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors"
             >
               <UserPlus className="h-4 w-4" />
@@ -175,6 +180,7 @@ export function TeamPageClient({ initialMembers, maxSeats }: Props) {
                     {m.invited_phone && (
                       <div className="text-xs text-slate-400">{m.invited_phone}</div>
                     )}
+                    {m.invited_zip_code && <div className="text-xs text-slate-400">ZIP {m.invited_zip_code}</div>}
                   </div>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">

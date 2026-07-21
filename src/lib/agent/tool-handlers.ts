@@ -16,10 +16,12 @@ function jsonResult(data: unknown) {
 }
 
 export async function executeTool(
-  userId: string,
+  actorUserId: string,
   name: string,
   input: Record<string, unknown>,
+  workspaceUserId = actorUserId,
 ): Promise<string> {
+  const userId = workspaceUserId;
   const admin = createSupabaseAdminClient();
 
   switch (name) {
@@ -575,7 +577,7 @@ export async function executeTool(
       const { error } = await admin
         .from("agent_memory")
         .upsert(
-          { user_id: userId, memory_text: content, updated_at: new Date().toISOString() },
+          { user_id: actorUserId, memory_text: content, updated_at: new Date().toISOString() },
           { onConflict: "user_id" },
         );
 

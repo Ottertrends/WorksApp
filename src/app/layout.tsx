@@ -19,11 +19,11 @@ export const metadata: Metadata = {
   description: "AI-powered project management for small contractors.",
   icons: {
     icon: [
-      { url: "/logo.png", type: "image/png" },
+      { url: "/icon", type: "image/png" },
       { url: "/favicon.ico", sizes: "any" },
     ],
-    shortcut: "/logo.png",
-    apple: "/logo.png",
+    shortcut: "/favicon.ico",
+    apple: "/apple-icon",
   },
   openGraph: {
     title: "WorksApp",
@@ -32,9 +32,9 @@ export const metadata: Metadata = {
     siteName: "WorksApp",
     images: [
       {
-        url: "/logo.png",
-        width: 512,
-        height: 512,
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
         alt: "WorksApp logo",
       },
     ],
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     card: "summary",
     title: "WorksApp",
     description: "AI-powered project management for small contractors.",
-    images: ["/logo.png"],
+    images: ["/twitter-image"],
   },
 };
 

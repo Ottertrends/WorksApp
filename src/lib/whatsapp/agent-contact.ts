@@ -1,0 +1,3 @@
+export const WORKSAPP_AGENT_PHONE = "+17377031190";
+export const WORKSAPP_AGENT_DISPLAY_PHONE = "+1 737 703 1190";
+export const WORKSAPP_AGENT_WHATSAPP_URL = "https://wa.me/17377031190?text=Hi%20WorksApp";

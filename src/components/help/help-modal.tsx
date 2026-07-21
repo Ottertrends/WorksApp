@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -9,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { WORKSAPP_AGENT_DISPLAY_PHONE, WORKSAPP_AGENT_WHATSAPP_URL } from "@/lib/whatsapp/agent-contact";
 
 type Tab = "how-to" | "contact";
 
@@ -94,20 +96,38 @@ export function HelpModal({ open, onClose, userName, userEmail }: Props) {
 
         {tab === "how-to" ? (
           <div className="flex flex-col gap-5">
-            {/* Key rule */}
+            {/* Agent contact */}
             <div className="rounded-xl bg-primary/10 dark:bg-primary/20 border border-primary/20 p-4">
-              <p className="text-sm font-semibold text-primary dark:text-primary/90 text-center">
-                Message the WorksApp number normally
+              <p className="text-xs font-semibold uppercase tracking-wide text-primary dark:text-primary/90 text-center">
+                WorksApp Agent
               </p>
-              <p className="text-xs text-slate-600 dark:text-slate-400 text-center mt-1">
-                Ask for what you need in plain language and your assistant will take it from there.
+              <p className="mt-1 text-xl font-bold tracking-wide text-slate-900 dark:text-white text-center">
+                {WORKSAPP_AGENT_DISPLAY_PHONE}
+              </p>
+              <p className="text-xs text-slate-600 dark:text-slate-400 text-center mt-2">
+                Save this number, then message the agent normally on WhatsApp.
               </p>
             </div>
 
             {/* Steps */}
             <div className="flex flex-col gap-3">
               <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Getting started</h3>
-              {[
+              <div className="flex gap-3 items-start">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center mt-0.5">1</span>
+                <p className="text-sm text-slate-700 dark:text-slate-300">
+                  Add the number you will use to contact the agent in <Link href="/dashboard/settings" className="font-medium text-primary hover:underline">Settings</Link>.
+                </p>
+              </div>
+              <div className="flex gap-3 items-start">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center mt-0.5">2</span>
+                <p className="text-sm text-slate-700 dark:text-slate-300">
+                  Open WhatsApp and message the WorksApp Agent at {WORKSAPP_AGENT_DISPLAY_PHONE}.
+                </p>
+              </div>
+              <Button asChild className="self-start">
+                <a href={WORKSAPP_AGENT_WHATSAPP_URL} target="_blank" rel="noreferrer">Message the WorksApp Agent</a>
+              </Button>
+              {false && [
                 "Go to Settings → WhatsApp and connect your number.",
                 "Open WhatsApp and message the WorksApp bot at +1 737 703 1190.",
                 "Send a message normally — slash commands still work too.",
@@ -119,7 +139,7 @@ export function HelpModal({ open, onClose, userName, userEmail }: Props) {
                   <p className="text-sm text-slate-700 dark:text-slate-300">{step}</p>
                 </div>
               ))}
-              <a href="https://wa.me/17377031190" target="_blank" rel="noreferrer" className="inline-flex text-sm font-medium text-primary hover:underline">Connect to bot on WhatsApp</a>
+              <a href="https://wa.me/17377031190" target="_blank" rel="noreferrer" className="hidden">Connect to bot on WhatsApp</a>
             </div>
 
             {/* Example commands */}

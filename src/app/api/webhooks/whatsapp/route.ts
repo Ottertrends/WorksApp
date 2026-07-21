@@ -5,6 +5,9 @@ import { processContractorMessage } from "@/lib/agent/contractor-agent";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logBotEvent } from "@/lib/whatsapp/session-store";
 
+const UNREGISTERED_NUMBER_MESSAGE =
+  "This number is not registered in our database. Please register at WorksApp.co to talk to the WorksApp agent.";
+
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
@@ -427,6 +430,27 @@ async function handleTelnyxInbound(data: TelnyxPayload | null, raw: TelnyxWebhoo
       messageId,
       summary: "Sender phone does not match profiles.phone_e164",
     });
+    try {
+      await sendTelnyxWhatsAppText(to, from, UNREGISTERED_NUMBER_MESSAGE);
+      await logWebhookEvent({
+        eventType: "message.received",
+        result: "unregistered-number-reply-sent",
+        from,
+        to,
+        messageId,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[whatsapp-webhook] Unregistered-number reply failed:", message);
+      await logWebhookEvent({
+        eventType: "message.received",
+        result: "unregistered-number-reply-failed",
+        from,
+        to,
+        messageId,
+        error: message,
+      });
+    }
     return;
   }
 

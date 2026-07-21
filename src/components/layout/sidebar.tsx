@@ -16,6 +16,7 @@ import {
   Settings as SettingsIcon,
   CreditCard,
   HelpCircle,
+  MessageCircle,
   CalendarDays,
   ClipboardList,
   ChevronLeft,
@@ -26,6 +27,7 @@ import { isPremiumTeam } from "@/lib/billing/access";
 
 import { useLanguage } from "@/lib/i18n/client";
 import { HelpModal } from "@/components/help/help-modal";
+import { WORKSAPP_AGENT_WHATSAPP_URL } from "@/lib/whatsapp/agent-contact";
 
 type Props = {
   userName?: string;
@@ -128,8 +130,20 @@ export function Sidebar({ userName, userEmail, subscriptionPlan }: Props) {
         {/* Spacer pushes Help to bottom */}
         <div className="flex-1" />
 
-        {/* Help */}
+        {/* Talk to Agent + Help */}
         <div className="border-t border-slate-100 dark:border-slate-800 pt-2 mt-2">
+          <a
+            href={WORKSAPP_AGENT_WHATSAPP_URL}
+            target="_blank"
+            rel="noreferrer"
+            title={collapsed ? "Talk to Agent" : undefined}
+            className={`flex items-center gap-3 px-3 py-2 w-full rounded-lg text-sm font-medium text-primary hover:bg-primary/10 dark:text-primary dark:hover:bg-primary/20 transition-colors ${
+              collapsed ? "justify-center" : ""
+            }`}
+          >
+            <MessageCircle className="h-4 w-4 flex-shrink-0" />
+            {!collapsed && <span>Talk to Agent</span>}
+          </a>
           <button
             type="button"
             onClick={() => setHelpOpen(true)}
