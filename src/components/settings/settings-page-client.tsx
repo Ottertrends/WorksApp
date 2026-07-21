@@ -22,8 +22,6 @@ import type { TaxRate } from "@/lib/types/database";
 import { CountryCodeSelect } from "@/components/phone/country-code-select";
 import { DEFAULT_PHONE_COUNTRY_CODE, inferPhoneCountryCode, phoneCountryValueToDialCode } from "@/lib/phone/country-codes";
 import {
-  PHONE_ALREADY_REGISTERED_MESSAGE,
-  isPhoneUniqueViolation,
   normalizePhoneE164,
 } from "@/lib/phone/normalize";
 
@@ -291,45 +289,25 @@ export function SettingsPageClient({ userId, profile }: { userId: string; profil
       if (!normalizedPhone) throw new Error("Enter a valid phone number.");
       if (!zip.trim()) throw new Error("Business ZIP code is required.");
 
-      const availabilityResponse = await fetch("/api/phone/availability", {
-        method: "POST",
+      const response = await fetch("/api/profile", {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: normalizedPhone }),
-      });
-      const availability = (await availabilityResponse.json()) as {
-        available?: boolean;
-        error?: string;
-      };
-      if (!availabilityResponse.ok) {
-        throw new Error(availability.error ?? "Unable to verify phone number.");
-      }
-      if (!availability.available) throw new Error(PHONE_ALREADY_REGISTERED_MESSAGE);
-
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          full_name: fullName.trim(),
-          company_name: companyName.trim(),
-          email: email.trim(),
-          phone: normalizedPhone ?? phone.trim(),
-          phone_e164: normalizedPhone,
-          zip_code: zip.trim(),
+        body: JSON.stringify({
+          full_name: fullName,
+          company_name: companyName,
+          email,
+          phone: normalizedPhone,
+          zip_code: zip,
           quotes_per_month: quotesPerMonth,
-          business_areas: businessAreas.length ? businessAreas : [],
-          services: services.length ? services : [],
-        })
-        .eq("id", userId);
-
-      if (error) {
-        if (isPhoneUniqueViolation(error)) throw new Error(PHONE_ALREADY_REGISTERED_MESSAGE);
-        throw error;
-      }
-
-      if (email.trim().length > 0 && email.trim() !== profile.email) {
-        const { error: authError } = await supabase.auth.updateUser({ email: email.trim() });
-        if (authError) throw authError;
-      }
-      toast.success(t.toasts.profileUpdated);
+          business_areas: businessAreas,
+          services,
+        }),
+      });
+      const result = (await response.json()) as { error?: string; email_confirmation_required?: boolean };
+      if (!response.ok) throw new Error(result.error ?? "Failed to save profile");
+      toast.success(result.email_confirmation_required
+        ? "Profile saved. Confirm the email change from the message sent to your new address."
+        : t.toasts.profileUpdated);
       router.refresh();
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Failed to save profile";
@@ -338,17 +316,9 @@ export function SettingsPageClient({ userId, profile }: { userId: string; profil
   }
 
   async function onSaveZip() {
-    const zipCode = zip.trim();
-    if (!zipCode) {
-      toast.error("Business ZIP code is required.");
-      return;
-    }
     setSavingZip(true);
     try {
-      const { error } = await supabase.from("profiles").update({ zip_code: zipCode }).eq("id", userId);
-      if (error) throw error;
-      toast.success("Business ZIP code updated");
-      router.refresh();
+      await onSaveProfile();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update ZIP code");
     } finally {

@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
+import { createPublicKey, verify } from "node:crypto";
 
 import { processContractorMessage } from "@/lib/agent/contractor-agent";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -85,6 +86,33 @@ function getTelnyxApiKey(): string {
   return key;
 }
 
+/** Telnyx signs `${timestamp}|${rawBody}` with its Ed25519 webhook public key. */
+function verifyTelnyxSignature(rawBody: string, request: Request): boolean {
+  const publicKey = (process.env.TELNYX_WEBHOOK_PUBLIC_KEY ?? process.env.TELNYX_PUBLIC_KEY ?? "").trim();
+  const timestamp = request.headers.get("telnyx-timestamp")?.trim();
+  const signatureValue = request.headers.get("telnyx-signature-ed25519")?.trim();
+  if (!publicKey || !timestamp || !signatureValue) return false;
+
+  try {
+    const key = publicKey.includes("BEGIN PUBLIC KEY")
+      ? createPublicKey(publicKey)
+      : createPublicKey({
+          key: Buffer.concat([
+            Buffer.from("302a300506032b6570032100", "hex"),
+            Buffer.from(publicKey, "base64"),
+          ]),
+          format: "der",
+          type: "spki",
+        });
+    const signature = /^[0-9a-f]+$/i.test(signatureValue) && signatureValue.length === 128
+      ? Buffer.from(signatureValue, "hex")
+      : Buffer.from(signatureValue, "base64");
+    return verify(null, Buffer.from(`${timestamp}|${rawBody}`), key, signature);
+  } catch {
+    return false;
+  }
+}
+
 async function logWebhookEvent(input: WebhookLogInput) {
   try {
     const admin = createSupabaseAdminClient();
@@ -127,6 +155,17 @@ function getInboundContent(data: TelnyxPayload | null): {
     text: (data?.text ?? body?.text?.body ?? caption ?? "").trim(),
     media: [...(data?.media ?? []), ...nestedMedia],
   };
+}
+
+function inferMediaMimeType(url: string, reportedType: string): string {
+  const type = reportedType.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+  if (MEDIA_EXTENSIONS[type]) return type;
+  const extension = url.toLowerCase().match(/\.([a-z0-9]{2,5})(?:[?#]|$)/)?.[1];
+  const byExtension: Record<string, string> = {
+    jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif",
+    mp4: "video/mp4", mov: "video/quicktime", webm: "video/webm", "3gp": "video/3gpp",
+  };
+  return extension ? (byExtension[extension] ?? type) : type;
 }
 
 function isTransientMediaResponse(status: number): boolean {
@@ -174,10 +213,10 @@ async function persistTelnyxMedia(args: {
 
   const response = await downloadTelnyxMedia(args.media.url);
 
-  const mimeType = (response.headers.get("content-type") ?? args.media.content_type ?? "")
-    .split(";", 1)[0]
-    .trim()
-    .toLowerCase();
+  const mimeType = inferMediaMimeType(
+    args.media.url,
+    response.headers.get("content-type") ?? args.media.content_type ?? "",
+  );
   const format = MEDIA_EXTENSIONS[mimeType];
   if (!format) throw new Error(`Unsupported Telnyx media type: ${mimeType || "unknown"}`);
 
@@ -280,10 +319,17 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const rawBody = await request.text();
+  if (!verifyTelnyxSignature(rawBody, request)) {
+    console.warn("[whatsapp-webhook] Rejected invalid or unsigned Telnyx webhook");
+    after(() => logWebhookEvent({ eventType: "message.received", result: "signature-invalid", error: "Missing or invalid Telnyx signature" }));
+    return NextResponse.json({ ok: false }, { status: 401 });
+  }
+
   let payload: TelnyxWebhook;
 
   try {
-    payload = (await request.json()) as TelnyxWebhook;
+    payload = JSON.parse(rawBody) as TelnyxWebhook;
   } catch {
     console.error("[whatsapp-webhook] Invalid JSON body");
     return NextResponse.json({ ok: true });
@@ -298,16 +344,25 @@ export async function POST(request: Request) {
   });
 
   if (eventType !== "message.received") {
-    await logWebhookEvent({
+    after(() => logWebhookEvent({
       eventType,
       result: "ignored-event",
       messageId: data?.id ?? payload.data?.id ?? null,
       raw: payload,
-    });
+    }));
     return NextResponse.json({ ok: true, ignored: eventType || "unknown-event" });
   }
 
-  await handleTelnyxInbound(data ?? null, payload);
+  after(() => handleTelnyxInbound(data ?? null, payload).catch((error) => {
+    console.error("[whatsapp-webhook] Background inbound processing failed:", error);
+    return logWebhookEvent({
+      eventType: "message.received",
+      result: "background-processing-failed",
+      messageId: data?.id ?? payload.data?.id ?? null,
+      error: error instanceof Error ? error.message : String(error),
+      raw: payload,
+    });
+  }));
   return NextResponse.json({ ok: true });
 }
 
@@ -399,11 +454,13 @@ async function handleTelnyxInbound(data: TelnyxPayload | null, raw: TelnyxWebhoo
 
   const caption = data?.body?.image?.caption ?? data?.body?.video?.caption ?? data?.body?.document?.caption ?? null;
   const mediaContexts: string[] = [];
+  const persistedMediaTypes: Array<"image" | "video"> = [];
   const uniqueMedia = media.filter((item, index, all) => item.url && all.findIndex((candidate) => candidate.url === item.url) === index);
   for (const item of uniqueMedia) {
     try {
       const saved = await persistTelnyxMedia({ admin, userId, messageId, media: item, caption });
       const label = saved.type === "video" ? "Video" : "Image";
+      persistedMediaTypes.push(saved.type);
       const emoji = saved.type === "video" ? "🎥" : "📸";
       mediaContexts.push(`${emoji} ${label} received successfully. Media ID: ${saved.id}`);
       await logWebhookEvent({ eventType: "message.received", result: "media-persisted", userId, from, to, messageId, summary: `${saved.type}:${saved.id}` });
@@ -438,7 +495,7 @@ async function handleTelnyxInbound(data: TelnyxPayload | null, raw: TelnyxWebhoo
       project_id: null,
       direction: "inbound",
       content: commandText,
-      message_type: media.length ? "image" : "text",
+      message_type: persistedMediaTypes.includes("video") ? "video" : persistedMediaTypes.length ? "image" : "text",
       whatsapp_message_id: messageId,
       sender_phone_e164: from,
       recipient_phone_e164: to,

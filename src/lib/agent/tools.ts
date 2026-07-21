@@ -296,6 +296,19 @@ export const CONTRACTOR_TOOLS: ContractorTool[] = [
       required: ["zip_code"],
     },
   },
+  {
+    name: "update_profile",
+    description: "Update the contractor's business profile: full name, company name, ZIP, quote volume, business areas, and services. Phone or email changes require the contractor to explicitly confirm in the immediately preceding message; set confirmed_sensitive true only then.",
+    input_schema: {
+      type: "object",
+      properties: {
+        full_name: { type: "string" }, company_name: { type: "string" }, zip_code: { type: "string" },
+        quotes_per_month: { type: "string", enum: ["1-5", "6-15", "16-30", "30+"] },
+        business_areas: { type: "array", items: { type: "string" } }, services: { type: "array", items: { type: "string" } },
+        phone: { type: "string" }, email: { type: "string" }, confirmed_sensitive: { type: "boolean" },
+      },
+    },
+  },
 
   // ── Calendar / Recurring Events ──────────────────────────────────────
   {

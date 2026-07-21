@@ -9,6 +9,7 @@ import type { ProjectStatus } from "@/lib/types/database";
 import type { ContentBlock, ProposalLineItem } from "@/lib/types/proposals";
 import { getAppBaseUrl } from "@/lib/url/app-url";
 import { authoritativeProposalLineItems } from "@/lib/proposals/line-items";
+import { normalizePhoneE164 } from "@/lib/phone/normalize";
 
 function jsonResult(data: unknown) {
   return JSON.stringify(data);
@@ -783,6 +784,27 @@ export async function executeTool(
       const { error } = await admin.from("profiles").update({ zip_code: zipCode }).eq("id", userId);
       if (error) return jsonResult({ error: error.message });
       return jsonResult({ ok: true, zip_code: zipCode, message: `Saved business ZIP code: ${zipCode}` });
+    }
+
+    case "update_profile": {
+      const sensitiveChange = input.phone != null || input.email != null;
+      if (sensitiveChange && input.confirmed_sensitive !== true) return jsonResult({ error: "Phone and email changes require explicit confirmation." });
+      if (input.email != null) return jsonResult({ error: "Email changes require confirmation in Settings so the verification email can be sent securely." });
+      const patch: Record<string, unknown> = {};
+      for (const key of ["full_name", "company_name", "zip_code", "quotes_per_month", "business_areas", "services"] as const) if (input[key] != null) patch[key] = input[key];
+      if (input.phone != null) {
+        const phone = normalizePhoneE164(String(input.phone));
+        if (!phone) return jsonResult({ error: "Enter a valid phone number." });
+        const { data: duplicate } = await admin.from("profiles").select("id").eq("phone_e164", phone).neq("id", userId).maybeSingle();
+        if (duplicate) return jsonResult({ error: "This phone number is already registered." });
+        patch.phone = phone;
+        patch.phone_e164 = phone;
+      }
+      if (!Object.keys(patch).length) return jsonResult({ error: "No profile changes were provided." });
+      const { data: saved, error } = await admin.from("profiles").update(patch).eq("id", userId)
+        .select("full_name, company_name, phone, zip_code, quotes_per_month, business_areas, services").single();
+      if (error) return jsonResult({ error: error.message });
+      return jsonResult({ ok: true, profile: saved, message: "Profile changes saved." });
     }
 
     // ── Calendar / Recurring Events ──────────────────────────────────────────
