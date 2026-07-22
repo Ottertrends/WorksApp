@@ -13,17 +13,16 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const brandIconUrl = "/icon?v=2";
+
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://worksapp.co"),
   title: "WorksApp",
   description: "AI-powered project management for small contractors.",
   icons: {
-    icon: [
-      { url: "/icon", type: "image/png" },
-      { url: "/favicon.ico", sizes: "any" },
-    ],
-    shortcut: "/favicon.ico",
-    apple: "/apple-icon",
+    icon: [{ url: brandIconUrl, type: "image/png" }],
+    shortcut: [{ url: brandIconUrl, type: "image/png" }],
+    apple: [{ url: brandIconUrl, type: "image/png" }],
   },
   openGraph: {
     title: "WorksApp",
