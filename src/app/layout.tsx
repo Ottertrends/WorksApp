@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const brandIconUrl = "/icon?v=2";
+const brandIconUrl = "/logo.png?v=2";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://worksapp.co"),
