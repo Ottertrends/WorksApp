@@ -4,6 +4,7 @@ import * as React from "react";
 import { toast } from "sonner";
 
 import { CountryCodeSelect } from "@/components/phone/country-code-select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DEFAULT_PHONE_COUNTRY_CODE, phoneCountryValueToDialCode } from "@/lib/phone/country-codes";
 import { normalizePhoneE164 } from "@/lib/phone/normalize";
 
@@ -36,15 +37,23 @@ const QUOTES_OPTIONS = [
 
 interface Props {
   show: boolean;
+  defaultFullName?: string;
   defaultCompanyName?: string;
+  defaultEmail?: string;
 }
 
-export function ProfileSetupModal({ show, defaultCompanyName = "" }: Props) {
+export function ProfileSetupModal({
+  show,
+  defaultFullName = "",
+  defaultCompanyName = "",
+  defaultEmail = "",
+}: Props) {
   const [visible, setVisible] = React.useState(show);
   const [submitting, setSubmitting] = React.useState(false);
 
   const [phone, setPhone] = React.useState("");
   const [phoneCountryCode, setPhoneCountryCode] = React.useState<string>(DEFAULT_PHONE_COUNTRY_CODE);
+  const [fullName, setFullName] = React.useState(defaultFullName);
   const [companyName, setCompanyName] = React.useState(defaultCompanyName);
   const [zipCode, setZipCode] = React.useState("");
   const [quotesPerMonth, setQuotesPerMonth] = React.useState("1-5");
@@ -61,6 +70,10 @@ export function ProfileSetupModal({ show, defaultCompanyName = "" }: Props) {
     e.preventDefault();
     if (!phone.trim()) {
       toast.error("Phone number is required");
+      return;
+    }
+    if (!fullName.trim()) {
+      toast.error("Full name is required");
       return;
     }
     if (!companyName.trim()) {
@@ -87,7 +100,7 @@ export function ProfileSetupModal({ show, defaultCompanyName = "" }: Props) {
       const res = await fetch("/api/onboarding/complete-profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: normalizedPhone, phone_e164: normalizedPhone, company_name: companyName, zip_code: zipCode, quotes_per_month: quotesPerMonth, business_areas: businessAreas, services }),
+        body: JSON.stringify({ full_name: fullName, phone: normalizedPhone, phone_e164: normalizedPhone, company_name: companyName, zip_code: zipCode, quotes_per_month: quotesPerMonth, business_areas: businessAreas, services }),
       });
       const j = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(j.error ?? "Failed to save profile");
@@ -110,67 +123,37 @@ export function ProfileSetupModal({ show, defaultCompanyName = "" }: Props) {
         </div>
 
         <form onSubmit={(e) => void handleSubmit(e)} className="px-6 py-5 flex flex-col gap-5">
-          {/* Phone */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-              Phone number <span className="text-red-500">*</span>
-            </label>
-            <div className="grid grid-cols-[128px_1fr] gap-2">
-              <CountryCodeSelect value={phoneCountryCode} onValueChange={setPhoneCountryCode} />
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="555 000 0000"
-                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/50"
-              />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="google-full-name" className="text-sm font-medium text-slate-700 dark:text-slate-300">Full name <span className="text-red-500">*</span></label>
+              <input id="google-full-name" type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/50" />
             </div>
-          </div>
-
-          {/* Company name */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-              Company name <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={companyName}
-              onChange={(e) => setCompanyName(e.target.value)}
-              placeholder="Acme Contractors LLC"
-              className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/50"
-            />
-          </div>
-
-          {/* Zip code */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-              ZIP code <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={zipCode}
-              onChange={(e) => setZipCode(e.target.value)}
-              placeholder="90210"
-              maxLength={10}
-              required
-              className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/50"
-            />
-          </div>
-
-          {/* Quotes per month */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-              How many quotes do you do per month?
-            </label>
-            <select
-              value={quotesPerMonth}
-              onChange={(e) => setQuotesPerMonth(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
-            >
-              {QUOTES_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="google-company-name" className="text-sm font-medium text-slate-700 dark:text-slate-300">Company name <span className="text-red-500">*</span></label>
+              <input id="google-company-name" type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Acme Contractors LLC" className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="google-email" className="text-sm font-medium text-slate-700 dark:text-slate-300">Email</label>
+              <input id="google-email" type="email" value={defaultEmail} readOnly className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm text-slate-500 dark:text-slate-400" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Phone number <span className="text-red-500">*</span></label>
+              <div className="grid grid-cols-[128px_1fr] gap-2">
+                <CountryCodeSelect value={phoneCountryCode} onValueChange={setPhoneCountryCode} />
+                <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="555 000 0000" className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="google-zip-code" className="text-sm font-medium text-slate-700 dark:text-slate-300">Business ZIP code <span className="text-red-500">*</span></label>
+              <input id="google-zip-code" type="text" value={zipCode} onChange={(e) => setZipCode(e.target.value)} placeholder="90210" maxLength={10} required className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+              <p className="text-xs text-slate-500">Used to tailor local searches unless you name another area.</p>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="google-quotes-per-month" className="text-sm font-medium text-slate-700 dark:text-slate-300">How many quotes do you do per month?</label>
+              <select id="google-quotes-per-month" value={quotesPerMonth} onChange={(e) => setQuotesPerMonth(e.target.value)} className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50">
+                {QUOTES_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
           </div>
 
           {/* Business areas */}
@@ -178,20 +161,15 @@ export function ProfileSetupModal({ show, defaultCompanyName = "" }: Props) {
             <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
               Business areas <span className="text-red-500">*</span>
             </label>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {BUSINESS_AREA_OPTIONS.map((o) => (
-                <button
+                <label
                   key={o.value}
-                  type="button"
-                  onClick={() => toggleItem(businessAreas, setBusinessAreas, o.value)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                    businessAreas.includes(o.value)
-                      ? "bg-primary text-white border-primary"
-                      : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-primary/50"
-                  }`}
+                  className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800"
                 >
+                  <Checkbox checked={businessAreas.includes(o.value)} onCheckedChange={() => toggleItem(businessAreas, setBusinessAreas, o.value)} />
                   {o.label}
-                </button>
+                </label>
               ))}
             </div>
           </div>
@@ -201,20 +179,15 @@ export function ProfileSetupModal({ show, defaultCompanyName = "" }: Props) {
             <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
               Services you offer <span className="text-red-500">*</span>
             </label>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {SERVICE_OPTIONS.map((o) => (
-                <button
+                <label
                   key={o.value}
-                  type="button"
-                  onClick={() => toggleItem(services, setServices, o.value)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                    services.includes(o.value)
-                      ? "bg-primary text-white border-primary"
-                      : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-primary/50"
-                  }`}
+                  className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800"
                 >
+                  <Checkbox checked={services.includes(o.value)} onCheckedChange={() => toggleItem(services, setServices, o.value)} />
                   {o.label}
-                </button>
+                </label>
               ))}
             </div>
           </div>

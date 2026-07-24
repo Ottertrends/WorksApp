@@ -7,6 +7,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
+import { Eye, EyeOff } from "lucide-react";
 
 import { supabase } from "@/lib/supabase/client";
 import { useLanguage } from "@/lib/i18n/client";
@@ -33,9 +34,13 @@ const signupSchema = z.object({
   phone: z.string().min(1, "Phone is required"),
   zip_code: z.string().trim().min(1, "ZIP code is required"),
   password: z.string().min(6, "Password must be at least 6 characters"),
+  confirm_password: z.string().min(1, "Please confirm your password"),
   quotes_per_month: z.enum(quotesOptions),
   business_areas: z.array(z.string()).min(1, "Select at least one business area"),
   services: z.array(z.string()).min(1, "Select at least one service"),
+}).refine((values) => values.password === values.confirm_password, {
+  message: "Passwords do not match",
+  path: ["confirm_password"],
 });
 
 type SignupValues = z.infer<typeof signupSchema>;
@@ -78,6 +83,8 @@ export default function SignupPage() {
   const { t } = useLanguage();
   const ta = t.auth;
   const ts = t.settings;
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
 
   const businessAreaOptions = [
     { value: "residential", label: ts.residential },
@@ -109,6 +116,7 @@ export default function SignupPage() {
       phone: "",
       zip_code: "",
       password: "",
+      confirm_password: "",
       quotes_per_month: "1-5",
       business_areas: [],
       services: [],
@@ -247,12 +255,6 @@ export default function SignupPage() {
                   <div className="text-sm text-danger">{errors.company_name.message}</div>
                 ) : null}
               </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="zip_code">Business ZIP code *</Label>
-                <Input id="zip_code" inputMode="numeric" autoComplete="postal-code" placeholder="78640" maxLength={10} {...register("zip_code")} />
-                <p className="text-xs text-slate-500">Used to tailor local searches unless you name another area.</p>
-                {errors.zip_code ? <div className="text-sm text-danger">{errors.zip_code.message}</div> : null}
-              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -295,11 +297,41 @@ export default function SignupPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="password">{ta.password} *</Label>
-                <Input id="password" type="password" {...register("password")} />
+                <div className="relative">
+                  <Input id="password" type={showPassword ? "text" : "password"} autoComplete="new-password" className="pr-10" {...register("password")} />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((visible) => !visible)}
+                    className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                </div>
                 {errors.password ? (
                   <div className="text-sm text-danger">{errors.password.message}</div>
                 ) : null}
               </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="confirm_password">Confirm password *</Label>
+                <div className="relative">
+                  <Input id="confirm_password" type={showConfirmPassword ? "text" : "password"} autoComplete="new-password" className="pr-10" {...register("confirm_password")} />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((visible) => !visible)}
+                    className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                    aria-label={showConfirmPassword ? "Hide password confirmation" : "Show password confirmation"}
+                  >
+                    {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                </div>
+                {errors.confirm_password ? (
+                  <div className="text-sm text-danger">{errors.confirm_password.message}</div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="flex flex-col gap-2">
                 <Label>{ta.quotesPerMonth}</Label>
                 <Select

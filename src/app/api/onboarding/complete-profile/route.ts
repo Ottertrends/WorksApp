@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = (await req.json()) as {
+    full_name?: string;
     phone?: string;
     phone_e164?: string;
     company_name?: string;
@@ -24,8 +25,11 @@ export async function POST(req: NextRequest) {
     services?: string[];
   };
 
-  const { phone, phone_e164, company_name, zip_code, quotes_per_month, business_areas, services } = body;
+  const { full_name, phone, phone_e164, company_name, zip_code, quotes_per_month, business_areas, services } = body;
 
+  if (!full_name?.trim()) {
+    return NextResponse.json({ error: "Full name is required" }, { status: 400 });
+  }
   if (!phone?.trim()) {
     return NextResponse.json({ error: "Phone is required" }, { status: 400 });
   }
@@ -45,6 +49,7 @@ export async function POST(req: NextRequest) {
   const { error } = await supabase
     .from("profiles")
     .update({
+      full_name: full_name.trim(),
       phone: normalizedPhone,
       phone_e164: normalizedPhone,
       company_name: company_name.trim(),

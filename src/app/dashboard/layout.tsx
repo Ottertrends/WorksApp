@@ -94,7 +94,12 @@ export default async function DashboardLayout({
           <div className="flex-1 min-w-0">
             <DashboardRealtimeBridge userId={user.id} />
             <TopBar profile={safeProfile} />
-            <ProfileSetupModal show={needsProfileSetup} defaultCompanyName={safeProfile.company_name} />
+            <ProfileSetupModal
+              show={needsProfileSetup}
+              defaultFullName={safeProfile.full_name}
+              defaultCompanyName={safeProfile.company_name}
+              defaultEmail={safeProfile.email}
+            />
             <OnboardingGuide show={!needsProfileSetup && showOnboarding} />
             <main className="px-4 py-6 md:px-6">{children}</main>
           </div>
