@@ -1,85 +1,53 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 
 const steps = [
   {
     title: "Welcome to WorksApp!",
-    subtitle: "Your AI-powered contractor assistant",
+    subtitle: "Your contractor assistant on WhatsApp",
     content: (
       <div className="flex flex-col items-center gap-4 text-center">
         <div className="text-6xl">👷</div>
-        <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed max-w-xs">
-          WorksApp helps you manage projects, draft invoices, save prices, and more — all through WhatsApp.
-          It takes about 2 minutes to set up.
+        <p className="max-w-xs text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+          WorksApp is ready whenever you need it. Just send a WhatsApp message to the WorksApp number to manage jobs,
+          draft invoices, save prices, and more.
         </p>
       </div>
     ),
   },
   {
-    title: "Connect your WhatsApp",
-    subtitle: "Step 1 of 3",
+    title: "Start with a message",
+    subtitle: "Step 1 of 2",
     content: (
       <div className="flex flex-col gap-4">
-        <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-4 flex flex-col gap-3">
+        <div className="flex flex-col gap-3 rounded-xl bg-slate-50 p-4 dark:bg-slate-800">
           {[
-            "Go to Settings → WhatsApp in the left menu.",
-            "Click Connect WhatsApp or use the pairing code option.",
-            "Follow the instructions to link your number.",
-          ].map((s, i) => (
-            <div key={i} className="flex gap-3 items-start">
-              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center mt-0.5">
-                {i + 1}
+            "Open WhatsApp on your phone.",
+            "Send a message to the WorksApp number.",
+            "Tell your assistant what you need in plain language.",
+          ].map((item, index) => (
+            <div key={item} className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
+                {index + 1}
               </span>
-              <p className="text-sm text-slate-700 dark:text-slate-300">{s}</p>
+              <p className="text-sm text-slate-700 dark:text-slate-300">{item}</p>
             </div>
           ))}
         </div>
-        <Link
-          href="/dashboard/settings"
-          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors self-start"
-        >
-          Go to Settings →
-        </Link>
-      </div>
-    ),
-  },
-  {
-    title: "Talk to your assistant",
-    subtitle: "Step 2 of 3",
-    content: (
-      <div className="flex flex-col gap-4">
-        <div className="rounded-xl bg-primary/10 dark:bg-primary/20 border border-primary/20 p-4 text-center">
-          <p className="text-sm font-semibold text-primary dark:text-primary/90">
-            Message the WorksApp number normally
-          </p>
-          <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-            Open WhatsApp and send your request in plain language.
-          </p>
-        </div>
-        <div className="flex flex-col gap-2">
-          {[
-            { cmd: "Create a kitchen remodel project", desc: "Start a new project" },
-            { cmd: "Draft an invoice for this project", desc: "Draft an invoice" },
-            { cmd: "Save $12/sq ft for tile", desc: "Save a price" },
-          ].map(({ cmd, desc }) => (
-            <div key={cmd} className="rounded-lg bg-slate-50 dark:bg-slate-900 p-3">
-              <code className="text-sm font-mono text-primary">{cmd}</code>
-              <p className="text-xs text-slate-500 mt-0.5">{desc}</p>
-            </div>
-          ))}
-        </div>
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          No pairing code or dashboard setup is required.
+        </p>
       </div>
     ),
   },
   {
     title: "What you can do",
-    subtitle: "Step 3 of 3",
+    subtitle: "Step 2 of 2",
     content: (
       <div className="flex flex-col gap-3">
         <p className="text-sm text-slate-600 dark:text-slate-400">
-          Your WorksApp assistant can help you with:
+          Send a message like “Create a kitchen remodel project” or “Draft an invoice for this project.” Your WorksApp assistant can also help you with:
         </p>
         <ul className="grid grid-cols-2 gap-2">
           {[
@@ -92,7 +60,7 @@ const steps = [
             { icon: "📋", text: "Track job history" },
             { icon: "💼", text: "Price book management" },
           ].map(({ icon, text }) => (
-            <li key={text} className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 rounded-lg p-2">
+            <li key={text} className="flex items-center gap-2 rounded-lg bg-slate-50 p-2 text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-300">
               <span>{icon}</span> {text}
             </li>
           ))}
@@ -117,7 +85,7 @@ export function OnboardingGuide({ show }: Props) {
     try {
       await fetch("/api/onboarding/complete", { method: "POST" });
     } catch {
-      /* ignore — modal still closes */
+      // The modal can still close when the optional completion marker fails.
     }
     setVisible(false);
   }
@@ -126,59 +94,33 @@ export function OnboardingGuide({ show }: Props) {
   const isLast = step === steps.length - 1;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md flex flex-col gap-0 overflow-hidden">
-        {/* Header */}
-        <div className="flex items-start justify-between px-6 pt-6 pb-0">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <div className="flex w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-slate-900">
+        <div className="flex items-start justify-between px-6 pb-0 pt-6">
           <div>
             <h2 className="text-lg font-bold text-slate-900 dark:text-white">{current.title}</h2>
-            <p className="text-xs text-slate-500 mt-0.5">{current.subtitle}</p>
+            <p className="mt-0.5 text-xs text-slate-500">{current.subtitle}</p>
           </div>
-          <button
-            type="button"
-            onClick={() => void complete()}
-            className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 underline underline-offset-2 mt-1 transition-colors"
-          >
+          <button type="button" onClick={() => void complete()} className="mt-1 text-xs text-slate-400 underline underline-offset-2 transition-colors hover:text-slate-600 dark:hover:text-slate-300">
             Skip
           </button>
         </div>
 
-        {/* Content */}
-        <div className="px-6 py-5">
-          {current.content}
-        </div>
+        <div className="px-6 py-5">{current.content}</div>
 
-        {/* Progress dots */}
         <div className="flex justify-center gap-1.5 pb-4">
-          {steps.map((_, i) => (
-            <div
-              key={i}
-              className={`h-1.5 rounded-full transition-all ${
-                i === step ? "w-6 bg-primary" : "w-1.5 bg-slate-200 dark:bg-slate-700"
-              }`}
-            />
+          {steps.map((_, index) => (
+            <div key={index} className={`h-1.5 rounded-full transition-all ${index === step ? "w-6 bg-primary" : "w-1.5 bg-slate-200 dark:bg-slate-700"}`} />
           ))}
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between px-6 pb-6 gap-3">
+        <div className="flex items-center justify-between gap-3 px-6 pb-6">
           {step > 0 ? (
-            <button
-              type="button"
-              onClick={() => setStep((s) => s - 1)}
-              className="text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
-            >
+            <button type="button" onClick={() => setStep((currentStep) => currentStep - 1)} className="text-sm text-slate-500 transition-colors hover:text-slate-700 dark:hover:text-slate-300">
               ← Back
             </button>
-          ) : (
-            <div />
-          )}
-          <button
-            type="button"
-            onClick={() => (isLast ? void complete() : setStep((s) => s + 1))}
-            disabled={completing}
-            className="px-5 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors"
-          >
+          ) : <div />}
+          <button type="button" onClick={() => (isLast ? void complete() : setStep((currentStep) => currentStep + 1))} disabled={completing} className="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-50">
             {isLast ? "Let's go!" : "Next →"}
           </button>
         </div>

@@ -170,6 +170,8 @@ export async function processContractorMessage(
     for (let i = 0; i < maxLoops; i++) {
       const response = await client.chat.completions.create({
         model,
+        // GPT-5.6 supports Chat Completions function tools with reasoning disabled.
+        reasoning_effort: "none",
         max_completion_tokens: 2048,
         tools,
         tool_choice: forceToolCall ? "required" : "auto",
