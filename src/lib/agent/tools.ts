@@ -458,9 +458,34 @@ export const CONTRACTOR_TOOLS: ContractorTool[] = [
 
   // ── Invoice Finalization & Sharing ──────────────────────────────────────
   {
+    name: "resolve_invoice",
+    description:
+      "Resolve a displayed WorksApp invoice number such as INV-008 to its internal invoice_id before any invoice follow-up, finalization, sending, payment-link, or sharing action. Returns the linked project, saved client email, WorksApp and Stripe states, Stripe customer ID when available, and hosted URL. Never ask for a project name when the contractor already supplied an invoice number.",
+    input_schema: {
+      type: "object",
+      properties: {
+        invoice_number: { type: "string", description: "Displayed WorksApp invoice number, for example INV-008" },
+      },
+      required: ["invoice_number"],
+    },
+  },
+  {
+    name: "get_stripe_billing_recipient_status",
+    description:
+      "Prepare a requested CC recipient for a specific Stripe invoice. Stripe's API cannot add or inspect invoice email recipients, so this returns the exact per-invoice Stripe Dashboard Review/Send steps where the contractor selects the client email and adds the CC. Do not claim a CC was sent unless the contractor completes that Stripe Dashboard send.",
+    input_schema: {
+      type: "object",
+      properties: {
+        invoice_id: { type: "string", description: "Internal invoice UUID returned by resolve_invoice" },
+        recipient_email: { type: "string", description: "Email address requested for CC" },
+      },
+      required: ["invoice_id", "recipient_email"],
+    },
+  },
+  {
     name: "finalize_invoice",
     description:
-      "Finalize a draft invoice. If the contractor has Stripe connected, this also finalizes it in Stripe and generates a hosted payment link. Returns the hosted URL if available. Call list_invoices first to get the invoice_id.",
+      "Finalize a draft invoice. If the contractor referenced an invoice number, call resolve_invoice first and use its invoice_id. If Stripe is connected, this also finalizes it in Stripe and generates a hosted payment link. Returns the hosted URL if available.",
     input_schema: {
       type: "object",
       properties: {
@@ -472,11 +497,12 @@ export const CONTRACTOR_TOOLS: ContractorTool[] = [
   {
     name: "send_invoice_stripe",
     description:
-      "Send a finalized invoice to the client via Stripe email. The invoice must already be finalized (status: open) and the project must have a client_email. This emails the invoice with a payment link directly from Stripe.",
+      "Send a finalized invoice to the saved client via Stripe email. For an invoice number, call resolve_invoice first and use its invoice_id. If a CC is requested, call get_stripe_billing_recipient_status first and direct the contractor to Stripe's per-invoice Review/Send screen to select the client and add the CC; do not call this send tool with a CC because Stripe's API cannot set invoice recipients. This sends only through Stripe, never Gmail or WorksApp email.",
     input_schema: {
       type: "object",
       properties: {
         invoice_id: { type: "string", description: "UUID of the invoice to send via Stripe" },
+        cc_email: { type: "string", description: "Optional CC recipient requested by the contractor" },
       },
       required: ["invoice_id"],
     },

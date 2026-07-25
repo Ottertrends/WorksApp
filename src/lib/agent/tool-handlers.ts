@@ -1270,6 +1270,60 @@ Return ONLY valid JSON, no markdown:
 
     // ── Invoice Finalization & Sharing ────────────────────────────────────────
 
+    case "resolve_invoice": {
+      const invoiceNumber = String(input.invoice_number ?? "").trim().toUpperCase();
+      if (!invoiceNumber) return jsonResult({ error: "invoice_number is required" });
+      const { data: invoice } = await admin
+        .from("invoices")
+        .select("id, invoice_number, project_id, status, stripe_invoice_id, stripe_invoice_number, stripe_hosted_url")
+        .eq("user_id", userId).ilike("invoice_number", invoiceNumber).maybeSingle();
+      if (!invoice) return jsonResult({ error: `Invoice ${invoiceNumber} was not found` });
+      const [{ data: project }, { data: profile }] = await Promise.all([
+        admin.from("projects").select("id, name, client_name, client_email").eq("id", invoice.project_id).eq("user_id", userId).maybeSingle(),
+        admin.from("profiles").select("stripe_connect_account_id").eq("id", userId).maybeSingle(),
+      ]);
+      let stripeStatus: string | null = null;
+      let hostedUrl = invoice.stripe_hosted_url ?? null;
+      let stripeCustomerId: string | null = null;
+      if (invoice.stripe_invoice_id && profile?.stripe_connect_account_id) {
+        try {
+          const stripeInvoice = await getStripe().invoices.retrieve(invoice.stripe_invoice_id, undefined, { stripeAccount: profile.stripe_connect_account_id });
+          stripeStatus = stripeInvoice.status ?? null;
+          hostedUrl = stripeInvoice.hosted_invoice_url ?? hostedUrl;
+          stripeCustomerId = typeof stripeInvoice.customer === "string" ? stripeInvoice.customer : stripeInvoice.customer?.id ?? null;
+        } catch { stripeStatus = "unavailable"; }
+      }
+      return jsonResult({ ok: true, invoice_id: invoice.id, invoice_number: invoice.invoice_number,
+        project: project ? { id: project.id, name: project.name, client_name: project.client_name } : null,
+        saved_client_email: project?.client_email ?? null, worksapp_status: invoice.status,
+        stripe_invoice_id: invoice.stripe_invoice_id ?? null, stripe_invoice_number: invoice.stripe_invoice_number ?? null,
+        stripe_status: stripeStatus, stripe_customer_id: stripeCustomerId, hosted_url: hostedUrl });
+    }
+
+    case "get_stripe_billing_recipient_status": {
+      const invoiceId = String(input.invoice_id ?? "").trim();
+      const recipientEmail = String(input.recipient_email ?? "").trim().toLowerCase();
+      if (!invoiceId || !recipientEmail) return jsonResult({ error: "invoice_id and recipient_email are required" });
+      const [{ data: invoice }, { data: profile }] = await Promise.all([
+        admin.from("invoices").select("id, stripe_invoice_id").eq("id", invoiceId).eq("user_id", userId).maybeSingle(),
+        admin.from("profiles").select("stripe_connect_account_id").eq("id", userId).maybeSingle(),
+      ]);
+      if (!invoice) return jsonResult({ error: "Invoice not found" });
+      if (!invoice.stripe_invoice_id || !profile?.stripe_connect_account_id) return jsonResult({ error: "A Stripe-linked invoice and connected Stripe account are required before checking Billing recipients." });
+      let stripeCustomerId: string | null = null;
+      try {
+        const stripeInvoice = await getStripe().invoices.retrieve(invoice.stripe_invoice_id, undefined, { stripeAccount: profile.stripe_connect_account_id });
+        stripeCustomerId = typeof stripeInvoice.customer === "string" ? stripeInvoice.customer : stripeInvoice.customer?.id ?? null;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Stripe error";
+        return jsonResult({ error: `Could not retrieve the Stripe invoice: ${msg}` });
+      }
+      return jsonResult({ ok: true, recipient_email: recipientEmail, stripe_customer_id: stripeCustomerId,
+        recipient_status: "set_in_stripe_invoice_send_ui", setup_required: true,
+        message: "Stripe's API cannot add or inspect recipients for an invoice email. Add this CC in the invoice's Stripe Dashboard Review/Send screen.",
+        dashboard_steps: ["In the connected Stripe Dashboard, go to Invoices and open this invoice.", "Choose Review invoice or Send invoice.", "In the email recipients section, keep/select the saved client email in To.", "Add the requested address in CC/additional recipients.", "Review and send the invoice from Stripe. Do not send a duplicate from WorksApp."] });
+    }
+
     case "finalize_invoice": {
       const invoiceId = String(input.invoice_id ?? "").trim();
       if (!invoiceId) return jsonResult({ error: "invoice_id is required" });
@@ -1365,10 +1419,11 @@ Return ONLY valid JSON, no markdown:
 
     case "send_invoice_stripe": {
       const invoiceId = String(input.invoice_id ?? "").trim();
+      const ccEmail = String(input.cc_email ?? "").trim().toLowerCase() || null;
       if (!invoiceId) return jsonResult({ error: "invoice_id is required" });
 
       const [{ data: inv }, { data: sendProf }] = await Promise.all([
-        admin.from("invoices").select("id, status, stripe_invoice_id, user_id").eq("id", invoiceId).eq("user_id", userId).single(),
+        admin.from("invoices").select("id, status, stripe_invoice_id, user_id, project_id").eq("id", invoiceId).eq("user_id", userId).single(),
         admin.from("profiles").select("stripe_connect_account_id, stripe_connect_charges_enabled").eq("id", userId).single(),
       ]);
 
@@ -1376,6 +1431,12 @@ Return ONLY valid JSON, no markdown:
       if (!inv.stripe_invoice_id) return jsonResult({ error: "This invoice has no Stripe invoice linked. Call finalize_invoice first." });
       if (inv.status === "draft") return jsonResult({ error: "Invoice must be finalized before sending. Call finalize_invoice first." });
       if (!sendProf?.stripe_connect_account_id) return jsonResult({ error: "Stripe Connect is not set up. Go to Settings → Integrations to connect Stripe." });
+      if (ccEmail) {
+        return jsonResult({ error: "Stripe's API cannot set recipients for an invoice email, so WorksApp did not send this invoice.", recipient_status: "set_in_stripe_invoice_send_ui", setup_required: true, cc_email: ccEmail,
+          dashboard_steps: ["In the connected Stripe Dashboard, go to Invoices and open this invoice.", "Choose Review invoice or Send invoice.", "Keep/select the saved client email in To and add this address in CC/additional recipients.", "Review and send from Stripe. Do not send a duplicate from WorksApp."] });
+      }
+      const { data: project } = await admin.from("projects").select("client_email").eq("id", inv.project_id).eq("user_id", userId).maybeSingle();
+      if (!project?.client_email) return jsonResult({ error: "This invoice's project has no saved client email, so Stripe cannot email the client." });
 
       try {
         const stripeOptions = { stripeAccount: sendProf.stripe_connect_account_id };
@@ -1405,9 +1466,11 @@ Return ONLY valid JSON, no markdown:
           stripe_invoice_id: stripeInvoice.id,
           stripe_invoice_number: stripeInvoice.number,
           hosted_url: hostedUrl,
+          saved_client_email: project.client_email,
+          cc_recipient_status: "not_requested",
           message: inv.status === "sent"
-            ? "Invoice was already sent. Stripe's current payment URL was verified."
-            : "Invoice sent to client via Stripe email.",
+            ? "Invoice was already sent. Stripe's current payment URL and invoice state were verified."
+            : "Stripe accepted the invoice send to the saved client email.",
         });
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Stripe error";
