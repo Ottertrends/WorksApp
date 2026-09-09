@@ -1,0 +1,33 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const ts = require('typescript');
+function load(file) {
+  const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
+  const result = { exports: {} };
+  new Function('require', 'module', 'exports', code)(require, result, result.exports);
+  return result.exports;
+}
+const { opportunitySchema, staleOpportunity, pipelineSummary } = load('src/lib/crm/model.ts');
+const { ruleOccurs, commitments } = load('src/lib/crm/availability.ts');
+const base = opportunitySchema.parse({ name: 'Fence', client_name: 'Pat' });
+assert.equal(base.stage, 'lead');
+assert.equal(opportunitySchema.safeParse({ ...base, stage: 'quoted' }).success, true);
+assert.equal(opportunitySchema.safeParse({ ...base, stage: 'scheduled' }).success, false);
+assert.equal(opportunitySchema.safeParse({ ...base, visit_date: '2026-02-30' }).success, false);
+assert.equal(opportunitySchema.safeParse({ ...base, stage: 'won', closed_date: '2026-09-09' }).success, false);
+assert.equal(opportunitySchema.safeParse({ ...base, stage: 'won', closed_date: '2026-09-09', final_amount: 0 }).success, true);
+const now = new Date('2026-09-09T12:00:00Z');
+const row = { ...base, id: 'test', created_at: '2026-09-08T12:00:00Z', updated_at: '2026-09-04T12:00:00Z', value: 100 };
+assert.equal(staleOpportunity(row, now), false);
+assert.equal(staleOpportunity({ ...row, updated_at: '2026-09-04T11:59:59Z' }, now), true);
+assert.equal(staleOpportunity({ ...row, stage: 'lost' }, now), false);
+const summary = pipelineSummary([row, { ...row, stage: 'won', closed_date: '2026-09-09', final_amount: 80 }], now);
+assert.equal(summary.open, 1); assert.equal(summary.value, 100); assert.equal(summary.wonValue, 80);
+const rule = { active: true, start_date: '2026-09-01', recurrence_type: 'weekly', day_of_week: 3 };
+assert.equal(ruleOccurs(rule, '2026-09-09'), true);
+assert.equal(ruleOccurs(rule, '2026-08-26'), false);
+assert.equal(ruleOccurs({ ...rule, recurrence_type: 'monthly_weekday', week_of_month: 2 }, '2026-09-09'), true);
+assert.equal(ruleOccurs({ ...rule, recurrence_type: 'monthly', day_of_month: 31 }, '2026-09-30'), false);
+assert.equal(ruleOccurs({ ...rule, recurrence_type: 'interval', interval_days: 0 }, '2026-09-09'), false);
+assert.equal(commitments('2026-09-09', [{ ...row, visit_date: '2026-09-09' }], [], 'test').length, 0);
+console.log('CRM checks passed: stages, dates, closing requirements, stale boundary, weekly totals, recurrence and self-exclusion.');

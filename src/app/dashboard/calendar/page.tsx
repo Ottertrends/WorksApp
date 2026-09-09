@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { CalendarClient } from "@/components/calendar/calendar-client";
+import { CrmClient } from "@/components/crm/crm-client";
 import type { RecurringRule } from "@/app/api/recurring/route";
 
 export default async function CalendarPage() {
@@ -62,6 +63,7 @@ export default async function CalendarPage() {
         projects={projects ?? []}
         initialNotificationsEnabled={!!notificationsEnabled}
       />
+      <CrmClient calendarOnly />
     </div>
   );
 }

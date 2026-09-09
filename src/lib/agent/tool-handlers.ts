@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { readCrm, saveOpportunity, addOpportunityClient } from '@/lib/crm/service';
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { syncDraftFromProject } from "@/lib/invoice/sync-draft";
 import { syncToStripe, finalizeStripeInvoice } from "@/lib/invoice/sync-stripe";
@@ -26,6 +27,13 @@ export async function executeTool(
   const admin = createSupabaseAdminClient();
 
   switch (name) {
+    case "read_crm":
+    case "save_crm_opportunity":
+    case "crm_add_client": {
+      try {
+        return jsonResult(name === 'read_crm' ? await readCrm(userId) : name === 'crm_add_client' ? await addOpportunityClient(userId, input.id) : await saveOpportunity(userId, input));
+      } catch (error) { return jsonResult({ error: error instanceof Error ? error.message : 'CRM operation failed' }); }
+    }
     // ── Projects ──────────────────────────────────────────────────────────────
 
     case "create_project": {

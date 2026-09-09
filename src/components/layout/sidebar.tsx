@@ -44,6 +44,7 @@ export function Sidebar({ userName, userEmail, subscriptionPlan }: Props) {
   const showTeam = isPremiumTeam({ subscription_plan: subscriptionPlan });
 
   const primaryNav = [
+    { href: "/dashboard/crm", label: "CRM", icon: FolderKanban },
     { href: "/dashboard", label: t.nav.dashboard, icon: LayoutDashboard },
     { href: "/dashboard/projects", label: t.nav.projects, icon: FolderKanban },
     { href: "/dashboard/invoices", label: t.nav.invoices, icon: FileText },

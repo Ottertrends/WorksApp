@@ -7,6 +7,7 @@ import { MINI_MODEL } from "@/lib/agent/model";
 import { routeToModel } from "@/lib/agent/model-router";
 import { buildSystemPrompt } from "@/lib/agent/types";
 import { CONTRACTOR_TOOLS } from "@/lib/agent/tools";
+import { resolveWorkspaceContext } from "@/lib/workspace/context";
 
 function formatAgentError(e: unknown): string {
   if (e instanceof Error) {
@@ -99,13 +100,15 @@ export async function processContractorMessage(
   actorUserId: string,
   messageText: string,
   history: { role: "user" | "assistant"; content: string }[],
-  workspaceUserId = actorUserId,
+  workspaceUserId?: string,
 ): Promise<AgentRunResult> {
   const userId = actorUserId;
   const fallback =
     "Sorry, I'm having trouble processing that. Please try again in a moment.";
 
   try {
+    // WhatsApp callers omit this argument; resolve the same workspace as web chat.
+    workspaceUserId ??= (await resolveWorkspaceContext(actorUserId)).workspaceUserId;
     const client = getClient();
     const { model, method: routeMethod } = await routeToModel(messageText, client);
     console.log("[contractor-agent] start", {

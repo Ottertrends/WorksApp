@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Bell, BellOff, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 
 import type { RecurringRule } from "@/app/api/recurring/route";
+import type { Opportunity } from "@/lib/crm/model";
 import { useLanguage } from "@/lib/i18n/client";
 
 interface Project {
@@ -94,6 +95,27 @@ export function CalendarClient({ initialRules, projects, initialNotificationsEna
   const [year, setYear] = React.useState(today.getFullYear());
   const [month, setMonth] = React.useState(today.getMonth());
   const [rules, setRules] = React.useState<RecurringRule[]>(initialRules);
+  const [crmRules, setCrmRules] = React.useState<RecurringRule[]>([]);
+  React.useEffect(() => {
+    let active = true;
+    async function refreshVisits() {
+      try {
+        const response = await fetch('/api/crm', { cache: 'no-store' });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!active) return;
+        setCrmRules((data.opportunities as Opportunity[]).filter(o => o.visit_date && o.stage !== 'lost').map(o => ({
+          id: `crm-${o.id}`, project_id: null, project_name: `${o.client_name}: ${o.name}`,
+          recurrence_type: 'manual', manual_dates: [o.visit_date!], start_date: o.visit_date!, next_occurrence: o.visit_date!,
+          day_of_week: null, day_of_month: null, week_of_month: null, interval_days: null, active: true,
+          event_time: o.visit_time, notes: `CRM visit · ${o.duration_minutes} min`,
+        })));
+      } catch { /* The CRM availability panel displays source errors. */ }
+    }
+    void refreshVisits();
+    const timer = setInterval(() => void refreshVisits(), 60000);
+    return () => { active = false; clearInterval(timer); };
+  }, []);
 
   // Notifications
   const [notificationsEnabled, setNotificationsEnabled] = React.useState(initialNotificationsEnabled);
@@ -118,7 +140,7 @@ export function CalendarClient({ initialRules, projects, initialNotificationsEna
   const monthEnd = new Date(year, month + 1, 0);
 
   const occurrenceMap: Record<string, RecurringRule[]> = {};
-  for (const rule of rules) {
+  for (const rule of [...rules, ...crmRules]) {
     const dates = occurrencesInRange(rule, monthStart, monthEnd);
     for (const d of dates) {
       const key = toDateKey(d);

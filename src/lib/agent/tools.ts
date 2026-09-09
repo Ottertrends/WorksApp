@@ -8,11 +8,32 @@ export type ContractorTool = {
 };
 
 export const CONTRACTOR_TOOLS: ContractorTool[] = [
+  {
+    name: "read_crm",
+    description: "Read the CRM pipeline, weekly summary, stale opportunities, clients, recurring calendar rules and subscription renewal dates. Use before updating an opportunity or discussing availability. Renewal dates are billing dates, not service appointments. Calendar rules must be expanded for the requested date; missing durations mean availability cannot be guaranteed.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "save_crm_opportunity",
+    description: "Create or update a potential project in CRM. Read CRM first to identify an existing opportunity. Omit id to create. Updates preserve omitted fields. Can move directly from lead to quoted. Scheduled requires visit date/time; won requires closed_date and final_amount; lost requires closed_date. Preserve previous notes when adding new notes. Do not create an active project for an unclosed lead.",
+    input_schema: { type: "object", properties: {
+      id: { type: "string" }, name: { type: "string" }, client_name: { type: "string" }, client_id: { type: ["string", "null"] },
+      address: { type: "string" }, email: { type: "string" }, phone: { type: "string" }, notes: { type: "string" }, information: { type: "string" },
+      value: { type: "number" }, stage: { type: "string", enum: ["lead","scheduled","quoted","won","lost"] },
+      visit_date: { type: ["string", "null"], description: "YYYY-MM-DD, calendar local date; null clears" }, visit_time: { type: ["string", "null"], description: "HH:mm, calendar local time; null clears" },
+      duration_minutes: { type: "integer" }, closed_date: { type: ["string", "null"], description: "YYYY-MM-DD" }, final_amount: { type: ["number", "null"] }, closing_notes: { type: "string" },
+    } },
+  },
+  {
+    name: "crm_add_client",
+    description: "Add a saved won/lost opportunity contact to the client directory only when requested. Does not send marketing or record consent.",
+    input_schema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+  },
   // ── Projects ────────────────────────────────────────────────────────────────
   {
     name: "create_project",
     description:
-      "Create a new project when the contractor mentions a new job, client, or work site. Always call list_clients first if a client name is mentioned.",
+      "Create an active project when actual project tracking is requested. Potential jobs, prospects and unclosed leads belong in save_crm_opportunity instead. Always call list_clients first if a client name is mentioned.",
     input_schema: {
       type: "object",
       properties: {

@@ -68,6 +68,7 @@ export function MobileNav({ userName, userEmail }: Props) {
   }, [open]);
 
   const navItems = [
+    { href: "/dashboard/crm", label: "CRM", icon: FolderKanban },
     { href: "/dashboard", label: t.nav.dashboard, icon: LayoutDashboard },
     { href: "/dashboard/projects", label: t.nav.projects, icon: FolderKanban },
     { href: "/dashboard/invoices", label: t.nav.invoices, icon: FileText },
