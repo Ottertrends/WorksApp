@@ -115,7 +115,9 @@ export function HelpModal({ open, onClose, userName, userEmail }: Props) {
               <div className="flex gap-3 items-start">
                 <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center mt-0.5">1</span>
                 <p className="text-sm text-slate-700 dark:text-slate-300">
-                  Add the number you will use to contact the agent in <Link href="/dashboard/settings" className="font-medium text-primary hover:underline">Settings</Link>.
+                  <Link href="/dashboard/settings" onClick={() => handleOpenChange(false)} className="hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
+                    Add the number you will use to contact the agent in <span className="font-medium text-primary">Settings &gt; Profile &gt; Phone</span>.
+                  </Link>
                 </p>
               </div>
               <div className="flex gap-3 items-start">
