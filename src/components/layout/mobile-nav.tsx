@@ -21,6 +21,7 @@ import {
   CalendarDays,
   ClipboardList,
   Languages,
+  RefreshCcw,
 } from "lucide-react";
 
 import Image from "next/image";
@@ -68,14 +69,15 @@ export function MobileNav({ userName, userEmail }: Props) {
   }, [open]);
 
   const navItems = [
-    { href: "/dashboard/crm", label: "CRM", icon: FolderKanban },
     { href: "/dashboard", label: t.nav.dashboard, icon: LayoutDashboard },
     { href: "/dashboard/projects", label: t.nav.projects, icon: FolderKanban },
     { href: "/dashboard/invoices", label: t.nav.invoices, icon: FileText },
-    { href: "/dashboard/proposals", label: t.nav.proposals, icon: ClipboardList },
+    { href: "/dashboard/crm", label: "CRM", icon: FolderKanban },
     { href: "/dashboard/calendar", label: t.nav.calendar, icon: CalendarDays },
-    { href: "/dashboard/price-book", label: t.nav.priceBook, icon: Boxes },
     { href: "/dashboard/clients", label: t.nav.clients, icon: Users },
+    { href: "/dashboard/price-book", label: t.nav.priceBook, icon: Boxes },
+    { href: "/dashboard/proposals", label: t.nav.proposals, icon: ClipboardList },
+    { href: "/dashboard/subscriptions", label: "Subscriptions", icon: RefreshCcw },
     { href: "/dashboard/invoice-design", label: t.nav.invoiceDesign, icon: Palette },
     { href: "/dashboard/messages", label: t.nav.messages, icon: MessageSquare },
     { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
