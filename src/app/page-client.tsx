@@ -2,311 +2,75 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import {
-  ArrowRight,
-  CalendarDays,
-  CheckCircle2,
-  ClipboardList,
-  CreditCard,
-  FileText,
-  FolderKanban,
-  MessageSquareText,
-  ShieldCheck,
-  Sparkles,
-  Users,
-} from "lucide-react";
 import { useState } from "react";
+import { ArrowDown, ArrowRight, CalendarDays, Check, CheckCheck, FileText, FolderKanban, MessageCircle, Plus } from "lucide-react";
+import styles from "./landing.module.css";
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { LoginForm } from "@/components/auth/login-form";
-
-const features = [
-  {
-    icon: MessageSquareText,
-    title: "WhatsApp AI assistant",
-    desc: "Send job details, pricing questions, or invoice requests from the truck and keep the work moving.",
-  },
-  {
-    icon: FileText,
-    title: "Invoices and proposals",
-    desc: "Draft professional invoices and quotes from project data, then share links without rebuilding the same paperwork.",
-  },
-  {
-    icon: FolderKanban,
-    title: "Projects and clients",
-    desc: "Track job status, client notes, locations, and work history in one place the agent can reference.",
-  },
-  {
-    icon: CalendarDays,
-    title: "Schedules and reminders",
-    desc: "Keep recurring work visible and get WhatsApp reminders before upcoming jobs.",
-  },
-  {
-    icon: CreditCard,
-    title: "Payment collection",
-    desc: "Send Stripe payment links, see what is outstanding, and close out jobs faster.",
-  },
-  {
-    icon: Users,
-    title: "Team-ready workspace",
-    desc: "Invite a team member so office and field work stay connected without more group chats.",
-  },
-];
-
-const workflow = [
-  "Text your AI assistant with a job update, client request, or pricing question.",
-  "WorksApp files the details under the right account, project, invoice, or client.",
-  "Send the next action: proposal, invoice, payment link, reminder, or follow-up.",
-];
-
-const outcomes = [
-  "One WhatsApp number linked to one account",
-  "Client and project context retained for the agent",
-  "Invoices, proposals, and payments in the same workspace",
+const examples = [
+  { label: "Draft an invoice", icon: FileText, request: "Patio is done. Draft an invoice for the Blanco job.", reply: "Your invoice is ready. I added the labor and materials from the job. Review it before sending.", type: "INVOICE DRAFT", title: "Blanco patio", detail: "Concrete patio · Labor & materials", value: "$2,450.00", status: "Ready for your review" },
+  { label: "Plan a job", icon: CalendarDays, request: "Schedule the Davis roof repair for Monday at 9 am.", reply: "The Davis roof repair is scheduled for Monday at 9 am.", type: "SCHEDULED JOB", title: "Davis roof repair", detail: "Monday · 9:00 AM", value: "On the calendar", status: "Project schedule updated" },
+  { label: "Find job details", icon: FolderKanban, request: "What’s the status of the kitchen remodel?", reply: "The Miller kitchen is in progress. The quote is ready for your review.", type: "PROJECT UPDATE", title: "Miller kitchen", detail: "Kitchen remodel · In progress", value: "Quote ready", status: "Everything in one place" },
 ];
 
 export function LandingPageClient() {
-  const [loginOpen, setLoginOpen] = useState(false);
+  const [selected, setSelected] = useState(0);
+  const example = examples[selected];
+  const ExampleIcon = example.icon;
 
   return (
-    <div className="min-h-dvh overflow-x-hidden bg-[#f6f8f3] text-slate-950 dark:bg-slate-950 dark:text-slate-50">
-      <header className="sticky top-0 z-30 border-b border-slate-900/10 bg-[#f6f8f3]/92 backdrop-blur dark:border-white/10 dark:bg-slate-950/90">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-          <Link href="/" className="flex min-w-0 items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-            <Image src="/logo.png" alt="WorksApp" width={40} height={40} className="size-10 object-contain" priority />
-            <span className="text-lg font-bold tracking-tight">WorksApp</span>
-          </Link>
-
-          <nav aria-label="Primary navigation" className="hidden items-center gap-6 text-sm font-medium text-slate-600 dark:text-slate-300 md:flex">
-            <a href="#features" className="transition-colors hover:text-slate-950 dark:hover:text-white">Features</a>
-            <a href="#workflow" className="transition-colors hover:text-slate-950 dark:hover:text-white">Workflow</a>
-            <Link href="/pricing" className="transition-colors hover:text-slate-950 dark:hover:text-white">Pricing</Link>
-          </nav>
-
-          <div className="flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setLoginOpen(true)}
-              className="hidden h-11 items-center justify-center rounded-md px-4 text-sm font-semibold text-slate-700 transition-colors hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent dark:text-slate-200 dark:hover:bg-white/10 sm:inline-flex"
-            >
-              Sign in
-            </button>
-            <Link
-              href="/auth/signup"
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
-            >
-              Start free
-              <ArrowRight className="size-4" aria-hidden="true" />
-            </Link>
-          </div>
+    <div className={styles.page}>
+      <header className={styles.header}>
+        <div className={styles.navbar}>
+          <Link href="/" className={styles.brand} aria-label="WorksApp home"><Image src="/logo.png" alt="" width={38} height={38} priority />WorksApp<span className={styles.brandDot}>.</span></Link>
+          <nav aria-label="Primary navigation" className={styles.navLinks}><a href="#features">Features</a><a href="#workflow">How it works</a><Link href="/pricing">Pricing</Link></nav>
+          <div className={styles.navActions}><Link href="/auth/login" className={styles.login}>Log in</Link><Link href="/auth/signup" className={styles.navCta}>Start free <ArrowRight size={15} aria-hidden="true" /></Link></div>
         </div>
       </header>
 
-      <Dialog open={loginOpen} onOpenChange={setLoginOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Sign in to WorksApp</DialogTitle>
-          </DialogHeader>
-          <LoginForm />
-        </DialogContent>
-      </Dialog>
-
       <main>
-        <section className="mx-auto grid max-w-6xl items-center gap-8 px-4 py-8 sm:px-6 sm:py-10 lg:min-h-[calc(100dvh-64px)] lg:grid-cols-[1.02fr_0.98fr] lg:gap-10 lg:py-14">
-          <div className="max-w-2xl">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-amber-700/20 bg-amber-100 px-3 py-1.5 text-sm font-semibold text-amber-900 dark:border-amber-300/20 dark:bg-amber-300/10 dark:text-amber-200">
-              <Sparkles className="size-4" aria-hidden="true" />
-              Built for contractors running jobs from the field
-            </div>
+        <section className={styles.hero}>
+          <div className={styles.heroCopy}>
+            <p className={styles.eyebrow}><span /> BUILT FOR INDEPENDENT CONTRACTORS</p>
+            <h1>Less paperwork.<br /><span>More time for<br />your business.</span></h1>
+            <p className={styles.intro}>Send a WhatsApp message to prepare an invoice, schedule a job, or find customer details. Keep working. Keep your business organized.</p>
+            <div className={styles.heroActions}><Link href="/auth/signup" className={styles.primary}>Create free account <ArrowRight size={18} aria-hidden="true" /></Link><a href="#workflow" className={styles.secondary}>See how it works <ArrowDown size={16} aria-hidden="true" /></a></div>
+            <p className={styles.heroNote}><Check size={14} aria-hidden="true" /> Start free <span>·</span> Built for the way you work</p>
+            <div className={styles.heroCaption}><span className={styles.captionLine} /> YOUR JOBS. YOUR CUSTOMERS. YOUR BUSINESS.</div>
+          </div>
 
-            <h1 className="max-w-3xl text-4xl font-bold leading-[1.04] tracking-tight text-slate-950 dark:text-white sm:text-6xl lg:text-7xl">
-              Your contracting business, organized by text.
-            </h1>
+          <div className={styles.demoStage}>
+            <div className={styles.stageLabel}>FROM A MESSAGE TO AN INVOICE</div>
 
-            <p className="mt-5 max-w-xl text-base leading-7 text-slate-600 dark:text-slate-300 sm:text-lg sm:leading-8">
-              WorksApp connects WhatsApp AI, projects, clients, invoices, proposals, schedules, and payments so your assistant always works from the right account context.
-            </p>
-
-            <div className="mt-6 flex flex-col gap-3 sm:mt-8 sm:flex-row">
-              <Link
-                href="/auth/signup"
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-slate-950 px-6 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
-              >
-                Create free account
-                <ArrowRight className="size-4" aria-hidden="true" />
-              </Link>
-              <a
-                href="#workflow"
-                className="inline-flex h-12 items-center justify-center rounded-md border border-slate-900/15 bg-white px-6 text-sm font-semibold text-slate-800 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
-              >
-                See how it works
-              </a>
-            </div>
-
-            <div className="mt-6 grid gap-2 text-sm text-slate-600 dark:text-slate-300 sm:mt-8 sm:grid-cols-3 sm:gap-3">
-              {outcomes.map((item) => (
-                <div key={item} className="flex gap-2">
-                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-700 dark:text-emerald-400" aria-hidden="true" />
-                  <span>{item}</span>
+            <div className={styles.chat}>
+              <div className={styles.chatHeader}><Image src="/logo.png" alt="WorksApp logo" width={64} height={64} className={styles.demoLogo} /><div><strong>WorksApp</strong><span>Your business assistant on WhatsApp</span></div><MessageCircle size={21} aria-hidden="true" /></div>
+              <div className={styles.chatBody}>
+                <p className={styles.demoLabel}>EXAMPLE CONVERSATION</p>
+                <div key={selected} className={styles.conversation} aria-live="polite" aria-atomic="true">
+                  <div className={styles.userBubble}>{example.request}<span>9:41 <CheckCheck size={14} aria-hidden="true" /></span></div>
+                  <div className={styles.agentBubble}>{example.reply}</div>
+                  <div className={styles.result}><div className={styles.resultType}><ExampleIcon size={15} aria-hidden="true" />{example.type}<span>WorksApp</span></div><h3>{example.title}</h3><p>{example.detail}</p><strong>{example.value}</strong><div className={styles.resultStatus}><span><Check size={13} aria-hidden="true" />{example.status}</span><ArrowRight size={16} aria-hidden="true" /></div></div>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          <ProductPreview />
-        </section>
-
-        <section id="features" className="border-y border-slate-900/10 bg-white py-16 dark:border-white/10 dark:bg-slate-900/45 sm:py-20">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <div className="max-w-2xl">
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-amber-800 dark:text-amber-300">Workspace</p>
-              <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">Everything the agent needs to help you.</h2>
-              <p className="mt-4 text-base leading-7 text-slate-600 dark:text-slate-300">
-                The product is designed around real contractor workflows: capture the request, organize the job, send the paperwork, and follow up.
-              </p>
-            </div>
-
-            <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {features.map((feature) => {
-                const Icon = feature.icon;
-                return (
-                  <article
-                    key={feature.title}
-                    className="rounded-lg border border-slate-900/10 bg-[#fbfcf8] p-5 transition-all hover:-translate-y-0.5 hover:border-slate-900/20 hover:shadow-sm dark:border-white/10 dark:bg-slate-950/70 dark:hover:border-white/20"
-                  >
-                    <div className="mb-5 flex size-11 items-center justify-center rounded-md bg-slate-950 text-white dark:bg-white dark:text-slate-950">
-                      <Icon className="size-5" aria-hidden="true" />
-                    </div>
-                    <h3 className="text-base font-semibold">{feature.title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{feature.desc}</p>
-                  </article>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-
-        <section id="workflow" className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[0.85fr_1.15fr]">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-amber-800 dark:text-amber-300">Workflow</p>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">From WhatsApp message to paid invoice.</h2>
-            <p className="mt-4 text-base leading-7 text-slate-600 dark:text-slate-300">
-              The experience stays simple on the surface, but every message is routed back to the right profile and workspace data.
-            </p>
-          </div>
-
-          <div className="grid gap-3">
-            {workflow.map((item, index) => (
-              <div key={item} className="grid grid-cols-[48px_1fr] gap-4 rounded-lg border border-slate-900/10 bg-white p-4 dark:border-white/10 dark:bg-white/5">
-                <div className="flex size-12 items-center justify-center rounded-md bg-amber-100 text-sm font-bold text-amber-900 dark:bg-amber-300/10 dark:text-amber-200">
-                  {String(index + 1).padStart(2, "0")}
-                </div>
-                <p className="self-center text-base leading-7 text-slate-700 dark:text-slate-200">{item}</p>
               </div>
-            ))}
+              <div className={styles.chatInput} aria-hidden="true"><Plus size={18} /><span>Message WorksApp…</span><span className={styles.send}><ArrowRight size={16} /></span></div>
+            </div>
+            <div className={styles.demoControls}><p>CHOOSE AN EXAMPLE</p><div role="group" aria-label="Choose an example conversation">{examples.map((item, index) => <button key={item.label} type="button" aria-pressed={selected === index} onClick={() => setSelected(index)} className={selected === index ? styles.selected : ""}>{item.label}</button>)}</div></div>
           </div>
         </section>
 
-        <section className="px-4 pb-16 sm:px-6 sm:pb-20">
-          <div className="mx-auto grid max-w-6xl gap-8 rounded-lg bg-slate-950 p-6 text-white dark:bg-white dark:text-slate-950 sm:p-8 lg:grid-cols-[1fr_auto] lg:items-center">
-            <div>
-              <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-amber-200 dark:text-amber-700">
-                <ShieldCheck className="size-4" aria-hidden="true" />
-                Built around account-level context
-              </div>
-              <h2 className="max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">Give your agent one reliable number and one reliable source of truth.</h2>
-              <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300 dark:text-slate-700">
-                Once a phone number is linked, messages route to that user&apos;s profile, projects, searches, invoices, clients, and memory.
-              </p>
-            </div>
-            <Link
-              href="/auth/signup"
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-white px-6 text-sm font-semibold text-slate-950 transition-colors hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-800"
-            >
-              Start free
-              <ArrowRight className="size-4" aria-hidden="true" />
-            </Link>
+        <section id="features" className={styles.features} aria-labelledby="features-heading">
+          <div className={styles.sectionTop}><p className={styles.eyebrow}>LESS TO HANDLE AFTER WORK</p><h2 id="features-heading">Keep the business under control.</h2><p>From the first quote to the final payment.</p></div>
+          <div className={styles.featureGrid}>
+            <article><span className={styles.featureIcon}><FileText size={23} aria-hidden="true" /></span><h3>Make it easier to get paid.</h3><p>Send clear quotes and invoices. Let customers pay through a link.</p></article>
+            <article><span className={styles.featureIcon}><FolderKanban size={23} aria-hidden="true" /></span><h3>Keep every job and client organized.</h3><p>Manage client accounts and projects in one place, with contact details, job notes, and work history.</p></article>
+            <article><span className={styles.featureIcon}><CalendarDays size={23} aria-hidden="true" /></span><h3>Know what comes next.</h3><p>Keep track of upcoming jobs with your schedule and WhatsApp reminders.</p></article>
           </div>
         </section>
+
+        <section id="workflow" className={styles.workflow} aria-labelledby="workflow-heading"><div><p className={styles.eyebrow}>SIMPLE TO GET STARTED</p><h2 id="workflow-heading">Use WhatsApp.<br />We handle the details.</h2><a href="#top" className={styles.workflowLink} onClick={(event) => { event.preventDefault(); window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" }); }}>Try the examples above <ArrowRight size={16} aria-hidden="true" /></a></div><ol>{[{ title: "Connect your WhatsApp.", text: "Create your account and link your number." }, { title: "Send a message.", text: "Tell WorksApp what you need, just as you would text someone." }, { title: "Review and send.", text: "Check your invoice or job details before taking the next step." }].map((step, index) => <li key={step.title}><span>0{index + 1}</span><div><h3>{step.title}</h3><p>{step.text}</p></div></li>)}</ol></section>
+
+        <section className={styles.finalCta}><div><p className={styles.eyebrow}>BUILT FOR YOUR BUSINESS</p><h2>Finish the job.<br />Bring less paperwork home.</h2></div><Link href="/auth/signup" className={styles.primary}>Create free account <ArrowRight size={18} aria-hidden="true" /></Link></section>
       </main>
-
-      <footer className="border-t border-slate-900/10 py-6 text-sm text-slate-600 dark:border-white/10 dark:text-slate-400">
-        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <span>Powered by OtterQ. Built for the trades.</span>
-          <div className="flex gap-5">
-            <Link href="/pricing" className="hover:text-slate-950 dark:hover:text-white">Pricing</Link>
-            <Link href="/privacy-policy" className="hover:text-slate-950 dark:hover:text-white">Privacy Policy</Link>
-          </div>
-        </div>
-      </footer>
-    </div>
-  );
-}
-
-function ProductPreview() {
-  return (
-    <div className="relative mx-auto w-full max-w-xl lg:mx-0">
-      <div className="rounded-lg border border-slate-900/10 bg-white p-3 shadow-xl shadow-slate-900/10 dark:border-white/10 dark:bg-slate-900 dark:shadow-black/30">
-        <div className="rounded-md border border-slate-900/10 bg-[#f6f8f3] p-4 dark:border-white/10 dark:bg-slate-950">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Today</p>
-              <h2 className="text-lg font-bold">Dashboard</h2>
-            </div>
-            <div className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-300">
-              Agent online
-            </div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-3">
-            {[
-              ["Open jobs", "12"],
-              ["Draft invoices", "$4.8k"],
-              ["Due this week", "5"],
-            ].map(([label, value]) => (
-              <div key={label} className="rounded-md border border-slate-900/10 bg-white p-3 dark:border-white/10 dark:bg-white/5">
-                <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
-                <p className="mt-1 text-xl font-bold">{value}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_0.9fr]">
-            <div className="rounded-md border border-slate-900/10 bg-white p-4 dark:border-white/10 dark:bg-white/5">
-              <div className="mb-3 flex items-center gap-2">
-                <ClipboardList className="size-4 text-amber-700 dark:text-amber-300" aria-hidden="true" />
-                <p className="font-semibold">Project queue</p>
-              </div>
-              {["Kitchen remodel", "Roof repair", "Patio concrete"].map((job, index) => (
-                <div key={job} className="flex items-center justify-between border-t border-slate-900/10 py-3 first:border-t-0 dark:border-white/10">
-                  <div>
-                    <p className="text-sm font-medium">{job}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">{index === 0 ? "Invoice ready" : index === 1 ? "Proposal pending" : "Scheduled"}</p>
-                  </div>
-                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 dark:bg-white/10 dark:text-slate-200">
-                    {index === 0 ? "Send" : "Review"}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            <div className="rounded-md border border-emerald-700/20 bg-emerald-50 p-4 dark:border-emerald-300/20 dark:bg-emerald-300/10">
-              <div className="mb-3 flex items-center gap-2">
-                <MessageSquareText className="size-4 text-emerald-700 dark:text-emerald-300" aria-hidden="true" />
-                <p className="font-semibold">WhatsApp agent</p>
-              </div>
-              <div className="space-y-3 text-sm">
-                <div className="rounded-md bg-white p-3 text-slate-700 dark:bg-slate-950 dark:text-slate-200">
-                  Draft an invoice for the Blanco patio job.
-                </div>
-                <div className="rounded-md bg-emerald-700 p-3 text-white dark:bg-emerald-500 dark:text-slate-950">
-                  Done. I found the project, added line items, and prepared a payment link.
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <footer className={styles.footer}><Link href="/" className={styles.footerBrand}>WorksApp<span>.</span></Link><p><a href="https://otterq.com" className={styles.poweredBy}>Powered by OtterQ</a><span> · Built for the trades.</span></p><div><Link href="/pricing">Pricing</Link><Link href="/privacy-policy">Privacy</Link><Link href="/auth/login">Log in <ArrowRight size={13} aria-hidden="true" /></Link></div></footer>
     </div>
   );
 }
