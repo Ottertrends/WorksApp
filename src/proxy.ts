@@ -3,6 +3,9 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 export async function proxy(req: NextRequest) {
+  // Public content and crawler endpoints do not need an authentication round trip.
+  const publicRoutes = ["/pricing", "/privacy-policy", "/contractor-invoicing-software", "/contractor-job-management-software", "/robots.txt", "/sitemap.xml", "/opengraph-image", "/twitter-image"];
+  if (publicRoutes.includes(req.nextUrl.pathname)) return NextResponse.next();
   let response = NextResponse.next({ request: req });
 
   // Refresh session token on every request — required by @supabase/ssr

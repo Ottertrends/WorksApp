@@ -10,6 +10,8 @@ import { DashboardRealtimeBridge } from "@/components/dashboard/dashboard-realti
 import { OnboardingGuide } from "@/components/onboarding/onboarding-guide";
 import { ProfileSetupModal } from "@/components/onboarding/profile-setup-modal";
 
+export const metadata = { robots: { index: false, follow: false } };
+
 export default async function DashboardLayout({
   children,
 }: {

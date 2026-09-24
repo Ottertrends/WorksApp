@@ -6,6 +6,7 @@ import { getServerLang } from "@/lib/i18n/server";
 // Auth pages use the browser Supabase client; avoid static prerender during `next build`
 // when CI/Vercel env wiring can differ from runtime.
 export const dynamic = "force-dynamic";
+export const metadata = { robots: { index: false, follow: false } };
 
 export default async function AuthLayout({ children }: { children: ReactNode }) {
   const lang = await getServerLang();

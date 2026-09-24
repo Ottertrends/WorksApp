@@ -1,9 +1,7 @@
 import Link from "next/link";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata = {
-  title: "Privacy Policy | WorksApp",
-  description: "Privacy Policy for WorksApp — how we collect, use, and protect your data.",
-};
+export const metadata = pageMetadata("Privacy Policy | WorksApp", "How WorksApp collects, uses, and protects your data. Contact details and privacy information for WorksApp customers.", "/privacy-policy");
 
 export default function PrivacyPolicyPage() {
   return (

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { ArrowDown, ArrowRight, CalendarDays, Check, CheckCheck, FileText, FolderKanban, MessageCircle, Plus } from "lucide-react";
 import styles from "./landing.module.css";
+import { homeFaq } from "@/lib/seo";
 
 const examples = [
   { label: "Draft an invoice", icon: FileText, request: "Patio is done. Draft an invoice for the Blanco job.", reply: "Your invoice is ready. I added the labor and materials from the job. Review it before sending.", type: "INVOICE DRAFT", title: "Blanco patio", detail: "Concrete patio · Labor & materials", value: "$2,450.00", status: "Ready for your review" },
@@ -30,11 +31,11 @@ export function LandingPageClient() {
       <main>
         <section className={styles.hero}>
           <div className={styles.heroCopy}>
-            <p className={styles.eyebrow}><span /> BUILT FOR INDEPENDENT CONTRACTORS</p>
-            <h1>Less paperwork.<br /><span>More time for<br />your business.</span></h1>
-            <p className={styles.intro}>Send a WhatsApp message to prepare an invoice, schedule a job, or find customer details. Keep working. Keep your business organized.</p>
+            <p className={styles.eyebrow}><span /> BUILT FOR CONTRACTOR TEAMS OF 1–10</p>
+            <h1>Contractor software.<br /><span>Start free.<br />Get back to the job.</span></h1>
+            <p className={styles.intro}>WorksApp brings invoices, clients, and jobs into one workspace for small contractors. Message your WhatsApp AI assistant to prepare an invoice, schedule a job, or find customer details—even when you are on site.</p>
             <div className={styles.heroActions}><Link href="/auth/signup" className={styles.primary}>Create free account <ArrowRight size={18} aria-hidden="true" /></Link><a href="#workflow" className={styles.secondary}>See how it works <ArrowDown size={16} aria-hidden="true" /></a></div>
-            <p className={styles.heroNote}><Check size={14} aria-hidden="true" /> Start free <span>·</span> Built for the way you work</p>
+            <p className={styles.heroNote}><Check size={14} aria-hidden="true" /> Free plan available <span>·</span> No credit card required</p>
             <div className={styles.heroCaption}><span className={styles.captionLine} /> YOUR JOBS. YOUR CUSTOMERS. YOUR BUSINESS.</div>
           </div>
 
@@ -57,6 +58,15 @@ export function LandingPageClient() {
           </div>
         </section>
 
+        <section id="free-plan" className={styles.resources} aria-labelledby="free-plan-heading">
+          <p className={styles.eyebrow}>TRY IT ON YOUR NEXT JOB</p>
+          <h2 id="free-plan-heading">A free plan for your first projects.</h2>
+          <p>Start with one client and one real job. Prepare a basic invoice, try the WhatsApp assistant, and see how WorksApp fits your day before choosing a paid plan.</p>
+          <ul className={styles.freeLimits}><li><strong>3</strong> projects</li><li><strong>5</strong> clients</li><li><strong>60</strong> AI messages per month</li><li><strong>Unlimited</strong> basic invoices</li></ul>
+          <p>The Free plan has no trial deadline. Premium adds invoice branding, PDFs, Stripe Connect payments, and calendar reminders. Shared team access is available with Premium Team.</p>
+          <div className={styles.heroActions}><Link href="/auth/signup" className={styles.primary}>Try WorksApp free <ArrowRight size={18} aria-hidden="true" /></Link><Link href="/pricing" className={styles.secondary}>See free and paid plans</Link></div>
+        </section>
+
         <section id="features" className={styles.features} aria-labelledby="features-heading">
           <div className={styles.sectionTop}><p className={styles.eyebrow}>LESS TO HANDLE AFTER WORK</p><h2 id="features-heading">Keep the business under control.</h2><p>From the first quote to the final payment.</p></div>
           <div className={styles.featureGrid}>
@@ -69,6 +79,20 @@ export function LandingPageClient() {
         <section id="workflow" className={styles.workflow} aria-labelledby="workflow-heading"><div><p className={styles.eyebrow}>SIMPLE TO GET STARTED</p><h2 id="workflow-heading">Use WhatsApp.<br />We handle the details.</h2><a href="#top" className={styles.workflowLink} onClick={(event) => { event.preventDefault(); window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" }); }}>Try the examples above <ArrowRight size={16} aria-hidden="true" /></a></div><ol>{[{ title: "Connect your WhatsApp.", text: "Create your account and link your number." }, { title: "Send a message.", text: "Tell WorksApp what you need, just as you would text someone." }, { title: "Review and send.", text: "Check your invoice or job details before taking the next step." }].map((step, index) => <li key={step.title}><span>0{index + 1}</span><div><h3>{step.title}</h3><p>{step.text}</p></div></li>)}</ol></section>
 
         <section className={styles.finalCta}><div><p className={styles.eyebrow}>BUILT FOR YOUR BUSINESS</p><h2>Finish the job.<br />Bring less paperwork home.</h2></div><Link href="/auth/signup" className={styles.primary}>Create free account <ArrowRight size={18} aria-hidden="true" /></Link></section>
+        <section className={styles.resources} aria-labelledby="built-for-heading">
+          <p className={styles.eyebrow}>FOR OWNERS WHO ARE STILL ON THE TOOLS</p>
+          <h2 id="built-for-heading">Run a small crew without losing track of the office.</h2>
+          <p>Whether you work alone, lead a crew of 1–10, or share the admin with one or two managers, keep customer details and job paperwork together. WorksApp is built for trades such as remodeling, roofing, concrete, plumbing, electrical work, and landscaping.</p>
+          <div className={styles.resourceGrid}>
+            <article><h3><Link href="/contractor-invoicing-software">Contractor invoicing software</Link></h3><p>Prepare a draft from job details, check labor and materials, and send a clear invoice. See what is included in Free and Premium.</p><Link href="/contractor-invoicing-software">Explore invoicing <ArrowRight size={16} aria-hidden="true" /></Link></article>
+            <article><h3><Link href="/contractor-job-management-software">Job management for small contractors</Link></h3><p>Keep clients, projects, and schedules in one workspace. Use WhatsApp to ask for job details while you are away from your desk.</p><Link href="/contractor-job-management-software">Explore job management <ArrowRight size={16} aria-hidden="true" /></Link></article>
+          </div>
+        </section>
+        <section className={styles.resources} aria-labelledby="faq-heading">
+          <h2 id="faq-heading">Questions about WorksApp</h2>
+          <div className={styles.faq}>{homeFaq.map(item => <details key={item.question}><summary>{item.question}</summary><p>{item.answer}</p></details>)}</div>
+          <p><Link href="/pricing">Compare all plans and limits</Link> or <a href="mailto:support@worksapp.co">contact WorksApp support</a>.</p>
+        </section>
       </main>
       <footer className={styles.footer}><Link href="/" className={styles.footerBrand}>WorksApp<span>.</span></Link><p><a href="https://otterq.com" className={styles.poweredBy}>Powered by OtterQ</a><span> · Built for the trades.</span></p><div><Link href="/pricing">Pricing</Link><Link href="/privacy-policy">Privacy</Link><Link href="/auth/login">Log in <ArrowRight size={13} aria-hidden="true" /></Link></div></footer>
     </div>

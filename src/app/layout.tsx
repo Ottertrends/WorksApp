@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AppToaster } from "@/components/ui/app-toaster";
+import { SITE_URL } from "@/lib/seo";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,7 +17,7 @@ const geistMono = Geist_Mono({
 const brandIconUrl = "/logo.png?v=2";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://worksapp.co"),
+  metadataBase: new URL(SITE_URL),
   title: "WorksApp",
   description: "AI-powered project management for small contractors.",
   icons: {
