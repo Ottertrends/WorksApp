@@ -1,9 +1,7 @@
-import OpenAI from "openai";
-
 import { DEFAULT_OPENAI_MODEL, MINI_MODEL } from "./model";
 
 const SIMPLE_PATTERNS: RegExp[] = [
-  /^(lista|listar|mu\u00e9strame|ver|show|list|dame\s+mis?|muestra)\s+(mis?\s+)?(proyectos?|clientes?|facturas?|invoices?|precios?|propuestas?|horarios?|schedules?|eventos?|calendar)/i,
+  /^(lista|listar|mu\u00e9strame|ver|show|list|dame\s+mis?|muestra)\s+(mis?\s+)?(proyectos?|projects?|clientes?|clients?|facturas?|invoices?|precios?|prices?|propuestas?|proposals?|horarios?|schedules?|eventos?|calendar)/i,
   /^(busca|encuentra|find|search)\s+(el\s+|la\s+|un\s+|una\s+)?(cliente|client|proyecto|project)\b/i,
   /\b(marcar|marca|mark|set|cambiar\s+estado|update\s+status)\b.{0,40}(pagad|paid|sent|enviado|void|open)/i,
   /^(guardar|save|agregar|a\u00f1adir|add)\s+(cliente|client|al\s+directorio)/i,
@@ -22,10 +20,9 @@ const COMPLEX_PATTERNS: RegExp[] = [
   /\b(y\s+tambi\u00e9n|and\s+also|y\s+adem\u00e1s|and\s+then)\b/i,
 ];
 
-export async function routeToModel(
+export function routeToModel(
   userMessage: string,
-  client: OpenAI,
-): Promise<{ model: string; method: "heuristic-complex" | "heuristic-simple" | "classifier" | "length" | "fallback" }> {
+): { model: string; method: "heuristic-complex" | "heuristic-simple" | "length" | "fallback" } {
   const msg = userMessage.trim();
 
   if (msg.length > 300) {
@@ -40,27 +37,5 @@ export async function routeToModel(
     return { model: MINI_MODEL, method: "heuristic-simple" };
   }
 
-  try {
-    const classification = await client.chat.completions.create({
-      model: MINI_MODEL,
-      max_completion_tokens: 5,
-      messages: [
-        {
-          role: "user",
-          content: `You are classifying a message sent to a contractor business assistant.
-Reply with exactly one word: "simple" or "complex".
-
-simple = listing data, viewing projects/clients/invoices, saving a client, changing invoice status
-complex = creating projects, creating/generating invoices, generating proposals, searching the web, deleting projects, scheduling recurring events, multi-step tasks
-
-Message: "${msg.slice(0, 200)}"`,
-        },
-      ],
-    });
-    const text = classification.choices[0]?.message.content?.trim().toLowerCase() ?? "";
-    return { model: text === "simple" ? MINI_MODEL : DEFAULT_OPENAI_MODEL, method: "classifier" };
-  } catch (err) {
-    console.warn("[model-router] classifier failed, defaulting to ChatGPT:", err instanceof Error ? err.message : err);
-    return { model: DEFAULT_OPENAI_MODEL, method: "fallback" };
-  }
+  return { model: DEFAULT_OPENAI_MODEL, method: "fallback" };
 }

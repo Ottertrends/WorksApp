@@ -1,3 +1,4 @@
+import { WORKSPACE_RESOURCES } from "./workspace-data";
 type JsonSchema = Record<string, unknown>;
 
 export type ContractorTool = {
@@ -8,6 +9,16 @@ export type ContractorTool = {
 };
 
 export const CONTRACTOR_TOOLS: ContractorTool[] = [
+  { name: "workspace_catalog", description: "Discover available contractor business data and supported fields. Credentials and system administration records are excluded.", input_schema: { type: "object", properties: {}, additionalProperties: false } },
+  { name: "read_workspace", description: "Read live workspace business records or your own personal records. Use IDs from results, paginate using next_offset, and read long fields with field/text_offset. invoice_items requires invoice_id. Read-only; use existing tools for changes. Never infer financial totals from a partial page.", input_schema: {
+    type: "object", additionalProperties: false, required: ["resource"], properties: {
+      resource: { type: "string", enum: Object.keys(WORKSPACE_RESOURCES) },
+      record_id: { type: "string" }, project_id: { type: "string" }, invoice_id: { type: "string" },
+      search: { type: "string", maxLength: 120 }, status: { type: "string", maxLength: 30 },
+      limit: { type: "integer", minimum: 1, maximum: 25 }, offset: { type: "integer", minimum: 0, maximum: 100000 },
+      field: { type: "string" }, text_offset: { type: "integer", minimum: 0, maximum: 10000000 },
+    },
+  } },
   {
     name: "read_crm",
     description: "Read the CRM pipeline, weekly summary, stale opportunities, clients, recurring calendar rules and subscription renewal dates. Use before updating an opportunity or discussing availability. Renewal dates are billing dates, not service appointments. Calendar rules must be expanded for the requested date; missing durations mean availability cannot be guaranteed.",

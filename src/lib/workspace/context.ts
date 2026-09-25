@@ -5,12 +5,13 @@ export type WorkspaceContext = { actorUserId: string; workspaceUserId: string; i
 
 export async function resolveWorkspaceContext(actorUserId: string): Promise<WorkspaceContext> {
   const admin = createSupabaseAdminClient();
-  const { data } = await admin
+  const { data, error } = await admin
     .from("team_members")
     .select("owner_user_id")
     .eq("member_user_id", actorUserId)
     .eq("status", "active")
     .maybeSingle();
+  if (error) throw new Error("Unable to resolve workspace membership");
   return {
     actorUserId,
     workspaceUserId: data?.owner_user_id ?? actorUserId,

@@ -1,19 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { createEvolutionClient } from "@/lib/evolution/client";
-import { getSessionSlice } from "@/lib/whatsapp/session-store";
-import { evolutionInstanceName } from "@/lib/whatsapp/instance-name";
 
 export const dynamic = "force-dynamic";
 
 interface ProfileRow {
   id: string;
   email: string | null;
-  whatsapp_connected: boolean | null;
-  whatsapp_instance_id: string | null;
-  whatsapp_sessions: unknown;
-  whatsapp_owner_jid: string | null;
-  whatsapp_lid_pending: boolean | null;
   notifications_enabled: boolean | null;
 }
 
@@ -37,7 +29,9 @@ export async function GET(req: NextRequest) {
 
   const admin = createSupabaseAdminClient();
   const now = new Date();
-  const todayStr = now.toISOString().slice(0, 10);
+  const { error: pruneError } = await admin.from("bot_events").delete().lt("created_at", new Date(Date.now() - 7 * 86400000).toISOString());
+  if (pruneError) console.warn("[cron/notify-upcoming] diagnostic retention cleanup failed");
+
   const tomorrowDate = new Date(now);
   tomorrowDate.setDate(tomorrowDate.getDate() + 1);
   const tomorrowStr = tomorrowDate.toISOString().slice(0, 10);
@@ -45,7 +39,7 @@ export async function GET(req: NextRequest) {
   // Fetch profiles with notifications enabled
   const { data: profiles, error: profErr } = await admin
     .from("profiles")
-    .select("id, email, whatsapp_connected, whatsapp_instance_id, whatsapp_sessions, whatsapp_owner_jid, whatsapp_lid_pending, notifications_enabled")
+    .select("id, email, notifications_enabled")
     .eq("notifications_enabled", true);
 
   if (profErr) {
@@ -53,7 +47,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: profErr.message }, { status: 500 });
   }
 
-  const evolution = createEvolutionClient();
   let notified = 0;
 
   for (const profile of (profiles ?? []) as ProfileRow[]) {
@@ -81,37 +74,18 @@ export async function GET(req: NextRequest) {
 
       const message = `WorksApp reminder 📋\n\nTomorrow's scheduled jobs (${tomorrowStr}):\n${projectLines.join("\n")}\n\nSent by WorksApp`;
 
-      // Try WhatsApp first
+      // Scheduled WhatsApp outreach requires approved templates. Keep the existing
+      // email fallback until a template-based reminder flow is explicitly configured.
       let sent = false;
-      if (profile.whatsapp_connected) {
-        const instanceName =
-          (profile.whatsapp_instance_id as string | null) ?? evolutionInstanceName(profile.id);
-        const session = getSessionSlice(
-          profile as Parameters<typeof getSessionSlice>[0],
-          instanceName,
-          evolutionInstanceName(profile.id),
-        );
-        const ownerJid = session.ownerJid;
-
-        if (ownerJid) {
-          try {
-            await evolution.sendText(instanceName, ownerJid, message);
-            sent = true;
-            console.log(`[cron/notify-upcoming] WhatsApp sent to user ${profile.id}`);
-          } catch (e) {
-            console.warn(`[cron/notify-upcoming] WhatsApp failed for user ${profile.id}:`, e instanceof Error ? e.message : e);
-          }
-        }
-      }
-
       // Email fallback via Resend
       if (!sent && profile.email) {
         const resendKey = process.env.RESEND_API_KEY?.trim();
         if (resendKey) {
           try {
             const fromEmail = process.env.RESEND_FROM_EMAIL?.trim() ?? "notifications@worksapp.co";
-            await fetch("https://api.resend.com/emails", {
+            const response = await fetch("https://api.resend.com/emails", {
               method: "POST",
+              signal: AbortSignal.timeout(15000),
               headers: {
                 Authorization: `Bearer ${resendKey}`,
                 "Content-Type": "application/json",
@@ -123,6 +97,7 @@ export async function GET(req: NextRequest) {
                 text: message,
               }),
             });
+            if (!response.ok) throw new Error(`Email provider rejected reminder (${response.status})`);
             sent = true;
             console.log(`[cron/notify-upcoming] Email sent to user ${profile.id}`);
           } catch (e) {

@@ -17,9 +17,6 @@ export interface Profile {
   business_areas: string[] | null;
   services: string[] | null;
   whatsapp_connected: boolean;
-  whatsapp_instance_id: string | null;
-  whatsapp_secondary_connected: boolean;
-  whatsapp_secondary_instance_id: string | null;
   invoice_logo_url: string | null;
   invoice_primary_color: string | null;
   invoice_title_font: string | null;

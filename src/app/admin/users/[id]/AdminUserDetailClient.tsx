@@ -60,12 +60,11 @@ interface DiagnosticsResult {
   ok: boolean;
   checks: {
     openai: CheckResult;
-    evolution: CheckResult;
+    whatsapp: CheckResult;
     db: CheckResult;
     webhook: CheckResult;
   };
   whatsapp_connected?: boolean;
-  whatsapp_secondary_connected?: boolean;
   instance_name?: string;
 }
 
@@ -520,7 +519,7 @@ export function AdminUserDetailClient({ userId, profile, projects, invoices, mem
               Overall: {diagnostics.ok ? "All OK" : "Issues detected"}
             </div>
             <CheckRow label="OpenAI" result={diagnostics.checks.openai} />
-            <CheckRow label="Evolution" result={diagnostics.checks.evolution} />
+            <CheckRow label="WhatsApp" result={diagnostics.checks.whatsapp} />
             <CheckRow label="Supabase" result={diagnostics.checks.db} />
             <CheckRow label="Webhook" result={diagnostics.checks.webhook} />
           </div>

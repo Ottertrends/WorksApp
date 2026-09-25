@@ -1,3 +1,4 @@
+import { readWorkspaceData, workspaceCatalog, safeSearchTerm } from "@/lib/agent/workspace-data";
 import OpenAI from "openai";
 import { readCrm, saveOpportunity, addOpportunityClient } from '@/lib/crm/service';
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -27,6 +28,8 @@ export async function executeTool(
   const admin = createSupabaseAdminClient();
 
   switch (name) {
+    case "workspace_catalog": return jsonResult(workspaceCatalog());
+    case "read_workspace": return jsonResult(await readWorkspaceData(admin, actorUserId, workspaceUserId, input));
     case "read_crm":
     case "save_crm_opportunity":
     case "crm_add_client": {
@@ -210,7 +213,7 @@ export async function executeTool(
       }
 
       if (hasSearch) {
-        const term = `%${String(input.search).trim()}%`;
+        const term = `%${safeSearchTerm(String(input.search))}%`;
         // Search across all useful text fields
         q = q.or(
           `name.ilike.${term},client_name.ilike.${term},location.ilike.${term},address.ilike.${term},current_work.ilike.${term},notes.ilike.${term}`,
@@ -330,6 +333,7 @@ export async function executeTool(
         .select("id, invoice_number")
         .eq("project_id", projectId)
         .eq("status", "draft")
+        .eq("user_id", userId)
         .maybeSingle();
 
       let invoiceId: string;
@@ -448,7 +452,7 @@ export async function executeTool(
         .order("client_name");
 
       if (input.search != null && String(input.search).trim()) {
-        const term = `%${String(input.search).trim()}%`;
+        const term = `%${safeSearchTerm(String(input.search))}%`;
         q = q.or(
           `client_name.ilike.${term},address.ilike.${term},phone.ilike.${term},email.ilike.${term},city.ilike.${term}`,
         );

@@ -1,64 +1,58 @@
 # WorksApp
 
-Next.js App Router + Supabase (auth + RLS) + Tailwind/shadcn-style UI. Includes Evolution API (WhatsApp), ChatGPT agent, webhooks, and realtime dashboard updates.
+The production reference is **https://www.worksapp.co**. This directory is the application and Git root; the outer workspace is only a container.
 
-## Environment variables
+Read [docs/current-version.md](docs/current-version.md) before architectural changes. It records the verified production commit, backend paths, and the confirmed Telnyx WhatsApp setup and the status of local backend improvements. Keep the verified provider configuration as the baseline.
 
-Create `.env.local` (never commit secrets) with:
+## Local development
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY` (server-only; account deletion, webhooks, agent tools)
+Run from this directory:
 
-### Phase 2 — WhatsApp & AI
-
-- `EVOLUTION_API_URL` — Evolution API base URL (e.g. `http://your-vps:8080`)
-- `EVOLUTION_API_KEY` — Evolution global API key
-- `NEXT_PUBLIC_APP_URL` — Public app URL for webhooks (Vercel URL or ngrok in dev)
-- `OPENAI_API_KEY` — OpenAI API key for the ChatGPT agent
-- `EVOLUTION_WEBHOOK_SECRET` *(optional)* — if set, webhook requests must send matching `x-evolution-webhook-secret` or `x-webhook-secret`
-- `WHATSAPP_VERIFY_TOKEN` — Meta WhatsApp Cloud API webhook verification token. Use the same value in Meta's "Verify token" field.
-- `OPENAI_MODEL` *(optional)* — overrides default (`gpt-5-chat-latest`) for the agent and diagnostics
-
-Apply migration `supabase/migrations/002_enable_realtime.sql` in Supabase so `projects`, `invoices`, and `messages` publish to Realtime.
-
-### Vercel
-
-Add the same variables under **Project → Settings → Environment Variables** for **Production** (and **Preview** if you use it).
-
-`NEXT_PUBLIC_*` values are inlined at **build time**; the build will fail or the app will not authenticate if they are missing.
-
-## Getting Started
-
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```powershell
+npm.cmd ci
+npm.cmd run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The app listens on http://127.0.0.1:3000. For the Webpack development variant, use `npm.cmd run dev:webpack`. Validate production compilation with `npm.cmd run build`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The lockfile is `package-lock.json`; use npm for reproducible installs. Do not start commands from the outer folder unless using `npm --prefix Worksapp.co ...`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Configuration
 
-## Learn More
+Keep credentials in the existing untracked `.env.local` or the deployment environment. Never commit or print them.
 
-To learn more about Next.js, take a look at the following resources:
+Core server configuration includes:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` for Supabase authentication and data access.
+- `SUPABASE_SERVICE_ROLE_KEY` for server-side operations.
+- `OPENAI_API_KEY` for the agent.
+- `NEXT_PUBLIC_APP_URL` for application links.
+- Stripe configuration for enabled payment/billing features.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+WhatsApp uses Telnyx. Configure `TELNYX_API_KEY` and `TELNYX_PUBLIC_KEY` (or `TELNYX_WEBHOOK_PUBLIC_KEY`) on the server. The messaging profile sends signed callbacks to `/api/webhooks/whatsapp`, with `/api/webhooks/whatsapp/failover` as its fallback. The webhook routes registered senders by `profiles.phone_e164`; users do not pair QR sessions. Google calendar/Gmail integration work is deferred; Google sign-in remains a separate existing feature.
 
-## Deploy on Vercel
+## Repository map
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `src/app/`: pages and backend routes.
+- `src/lib/agent/`: shared agent, routing, prompts, and tools.
+- `src/lib/workspace/`: owner/member workspace context.
+- `src/lib/supabase/`: browser, server, and privileged database clients.
+- `supabase/migrations/`: versioned database changes; compare with live schema before applying.
+- `docs/current-version.md`: deployment evidence and backend map.
+- `docs/seo-research.md`: contractor audience and SEO research.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The previous undeployed backend experiment and migrations are preserved under the outer `../.archive/`. That archive is not part of the app or deployment and must not be imported automatically.
+
+## Deployment
+
+The Vercel project is `ottertrends-projects/worksapp`, connected to `Ottertrends/WorksApp` on GitHub. Production was verified at commit `245d93d8fcf0364efede44007d88e11342da138a` during this cleanup. Recheck the production overview before relying on this historical snapshot.
+
+Pushing to the production branch can deploy changes. Do not mix cleanup or experimental migrations into a production release without verifying their scope.
+
+## Backend verification
+
+Run `node --test scripts/test-agent-backend.cjs scripts/test-workspace-data.mjs`, `node scripts/crm-agent-check.cjs`, and `npm run build`. Tests use mocked provider/model calls; they do not send messages or incur model charges.
+
+The agent uses a scoped read-only catalog for 20 business/personal resources and existing action tools for writes. Model defaults are retained; `OPENAI_MODEL` and `OPENAI_MINI_MODEL` can override them. Routing no longer calls a classifier. Usage is shared across web and WhatsApp and includes both model tiers.
+
+Historical SQL migrations are retained for reproducibility. No new migration, worker, or webhook secret is required for this backend update. Scheduled reminders retain their email path; WhatsApp template-based outreach is not configured by this cleanup.

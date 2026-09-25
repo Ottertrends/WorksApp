@@ -8,7 +8,7 @@ function load(file, imports = require) {
   return result.exports;
 }
 async function main() {
-  const tools = load('src/lib/agent/tools.ts').CONTRACTOR_TOOLS;
+  const tools = load('src/lib/agent/tools.ts', name => name === './workspace-data' ? load('src/lib/agent/workspace-data.ts') : require(name)).CONTRACTOR_TOOLS;
   for (const name of ['read_crm', 'save_crm_opportunity', 'crm_add_client']) {
     assert.equal(tools.filter(t => t.name === name).length, 1);
   }
@@ -34,9 +34,9 @@ async function main() {
   const prompt = load('src/lib/agent/types.ts').buildSystemPrompt();
   assert.ok(prompt.includes('CRM WORKFLOW'));
   assert.ok(prompt.includes('does not create or send an invoice'));
-  for (const channel of ['whatsapp','evolution']) {
-    const source = fs.readFileSync(`src/app/api/webhooks/${channel}/route.ts`, 'utf8');
-    assert.ok(source.includes('processContractorMessage(userId, commandText, history)'));
+  for (const channel of ['whatsapp']) {
+    const source = fs.readFileSync(`src/lib/${channel}/webhook.ts`, 'utf8');
+    assert.ok(source.includes('processContractorMessage(userId, commandText, history, workspace.workspaceUserId)'));
   }
   console.log('CRM agent checks passed: tool registration, workspace-scoped dispatch, failed saves, prompt instructions and WhatsApp entry points.');
 }

@@ -1,3 +1,4 @@
+import { isPremium, maxMonthlyMessages } from "@/lib/billing/access";
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam, ChatCompletionTool } from "openai/resources/chat/completions";
 
@@ -39,6 +40,7 @@ export type AgentRunResult = {
   reply: string;
   /** Set when OpenAI/API/tools failed; `reply` may still be a safe fallback string */
   error?: string;
+  limitReached?: boolean;
 };
 
 const INVOICE_MUTATION_TOOLS = new Set([
@@ -69,7 +71,7 @@ function claimsSharedLink(text: string): boolean {
 function getClient() {
   const key = process.env.OPENAI_API_KEY?.trim();
   if (!key) throw new Error("Missing OPENAI_API_KEY");
-  return new OpenAI({ apiKey: key });
+  return new OpenAI({ apiKey: key, timeout: 40000, maxRetries: 1 });
 }
 
 function buildMessageParams(
@@ -106,11 +108,17 @@ export async function processContractorMessage(
   const fallback =
     "Sorry, I'm having trouble processing that. Please try again in a moment.";
 
+  const startedAt = Date.now();
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let usageModel = MINI_MODEL;
+  let usageAdmitted = false;
   try {
     // WhatsApp callers omit this argument; resolve the same workspace as web chat.
     workspaceUserId ??= (await resolveWorkspaceContext(actorUserId)).workspaceUserId;
     const client = getClient();
-    const { model, method: routeMethod } = await routeToModel(messageText, client);
+    const { model, method: routeMethod } = routeToModel(messageText);
+    usageModel = model;
     console.log("[contractor-agent] start", {
       model: model === MINI_MODEL ? "mini" : "chatgpt",
       routeMethod,
@@ -119,9 +127,10 @@ export async function processContractorMessage(
     });
 
     const admin = createSupabaseAdminClient();
-    const [{ data: memRow }, { data: profRow }] = await Promise.all([
+    const [{ data: memRow }, { data: profRow, error: profileError }, { data: monthRows, error: usageError }] = await Promise.all([
       admin.from("agent_memory").select("memory_text, updated_at").eq("user_id", userId).maybeSingle(),
-      admin.from("profiles").select("zip_code, city, state, stripe_connect_account_id, stripe_connect_charges_enabled").eq("id", workspaceUserId).maybeSingle(),
+      admin.from("profiles").select("zip_code, city, state, stripe_connect_account_id, stripe_connect_charges_enabled, subscription_plan, subscription_status, subscription_seats").eq("id", workspaceUserId).maybeSingle(),
+      admin.from("api_usage").select("openai_input_tokens, openai_output_tokens, mini_input_tokens, mini_output_tokens, web_messages").eq("user_id", userId).gte("date", `${new Date().toISOString().slice(0, 7)}-01`),
     ]);
 
     const memoryBlock = memRow?.memory_text?.trim()
@@ -136,31 +145,31 @@ export async function processContractorMessage(
     }) + memoryBlock;
 
     const MONTHLY_TOKEN_CAP = 6_500_000;
-    const monthStart = new Date();
-    monthStart.setDate(1);
-    monthStart.setHours(0, 0, 0, 0);
-    const { data: monthRows } = await admin
-      .from("api_usage")
-      .select("openai_input_tokens, openai_output_tokens")
-      .eq("user_id", userId)
-      .gte("date", monthStart.toISOString().slice(0, 10));
+    if (usageError || profileError || !profRow) throw new Error("Unable to verify agent usage allowance");
+    const messageLimit = maxMonthlyMessages(profRow);
+    const monthlyMessages = (monthRows ?? []).reduce((total, row) => total + (row.web_messages ?? 0), 0);
+    if (!isPremium(profRow) && monthlyMessages >= messageLimit) return {
+      reply: `You've reached your ${messageLimit} free messages for this month. Upgrade in WorksApp billing to continue.`, limitReached: true,
+    };
     const monthlyTokens = (monthRows ?? []).reduce(
-      (sum, r) => sum + (r.openai_input_tokens ?? 0) + (r.openai_output_tokens ?? 0),
+      (sum, r) => sum + (r.openai_input_tokens ?? 0) + (r.openai_output_tokens ?? 0) + (r.mini_input_tokens ?? 0) + (r.mini_output_tokens ?? 0),
       0,
     );
     if (monthlyTokens >= MONTHLY_TOKEN_CAP) {
       return {
         reply: "You've reached your monthly usage limit (6.5M tokens). Your limit resets on the 1st of next month.",
+        limitReached: true,
         error: `Monthly token cap exceeded: ${monthlyTokens.toLocaleString()} / ${MONTHLY_TOKEN_CAP.toLocaleString()}`,
       };
     }
 
+    usageAdmitted = true;
     const messages: ChatCompletionMessageParam[] = [
       { role: "system", content: systemWithMemory },
       ...buildMessageParams(history, messageText),
     ];
     const tools = toOpenAITools();
-    const maxLoops = 15;
+    const maxLoops = 12;
     const successfulTools = new Set<string>();
     const verifiedUrls = new Set<string>();
     const explicitPriceBookConfirmation = /^(?:yes|yep|yeah|sure|confirm(?:ed)?|approved|use (?:it|that)|go ahead|proceed|do it|s[ií]|claro)\b/i
@@ -171,6 +180,7 @@ export async function processContractorMessage(
     let correctionCount = 0;
 
     for (let i = 0; i < maxLoops; i++) {
+      if (Date.now() - startedAt > 210000 || monthlyTokens + inputTokens + outputTokens >= MONTHLY_TOKEN_CAP) break;
       const response = await client.chat.completions.create({
         model,
         // GPT-5.6 supports Chat Completions function tools with reasoning disabled.
@@ -183,22 +193,8 @@ export async function processContractorMessage(
       forceToolCall = false;
       const message = response.choices[0]?.message;
 
-      if (response.usage) {
-        const today = new Date().toISOString().slice(0, 10);
-        const isMini = model === MINI_MODEL;
-        void Promise.resolve(
-          admin.rpc("increment_usage", {
-            p_user_id: userId,
-            p_date: today,
-            p_input: isMini ? 0 : (response.usage.prompt_tokens ?? 0),
-            p_output: isMini ? 0 : (response.usage.completion_tokens ?? 0),
-            p_tavily: 0,
-            p_web_messages: 0,
-            p_mini_input: isMini ? (response.usage.prompt_tokens ?? 0) : 0,
-            p_mini_output: isMini ? (response.usage.completion_tokens ?? 0) : 0,
-          }),
-        ).catch((err: unknown) => console.warn("[contractor-agent] usage tracking failed:", err));
-      }
+      inputTokens += response.usage?.prompt_tokens ?? 0;
+      outputTokens += response.usage?.completion_tokens ?? 0;
 
       if (!message) {
         return { reply: fallback, error: "OpenAI returned no message" };
@@ -228,6 +224,10 @@ export async function processContractorMessage(
           correctionCount += 1;
           forceToolCall = true;
           continue;
+        }
+
+        if (completedClaim && !hasInvoiceMutation) {
+          return { reply: "I couldn't verify that the invoice action completed. Please check the invoice in WorksApp before trying again.", error: "Blocked unverified invoice completion claim" };
         }
 
         if (linkClaim && !hasVerifiedLink) {
@@ -324,6 +324,7 @@ export async function processContractorMessage(
     }
 
     try {
+      if (Date.now() - startedAt > 210000 || monthlyTokens + inputTokens + outputTokens >= MONTHLY_TOKEN_CAP) throw new Error("Run budget exhausted");
       const summaryResp = await client.chat.completions.create({
         model,
         max_completion_tokens: 512,
@@ -335,6 +336,8 @@ export async function processContractorMessage(
           },
         ],
       });
+      inputTokens += summaryResp.usage?.prompt_tokens ?? 0;
+      outputTokens += summaryResp.usage?.completion_tokens ?? 0;
       const summaryText = summaryResp.choices[0]?.message.content?.trim() ?? "";
       if (summaryText) return { reply: summaryText, error: "Exceeded max tool loops" };
     } catch {
@@ -349,5 +352,19 @@ export async function processContractorMessage(
     const detail = formatAgentError(e);
     console.error("[contractor-agent] error:", detail, e);
     return { reply: fallback, error: detail };
+  } finally {
+    if (usageAdmitted) {
+      try {
+        const mini = usageModel === MINI_MODEL;
+        const { error } = await createSupabaseAdminClient().rpc("increment_usage", {
+          p_user_id: actorUserId, p_date: new Date().toISOString().slice(0, 10),
+          p_input: mini ? 0 : inputTokens, p_output: mini ? 0 : outputTokens,
+          p_tavily: 0, p_web_messages: 1,
+          p_mini_input: mini ? inputTokens : 0, p_mini_output: mini ? outputTokens : 0,
+        });
+        if (error) console.error("[contractor-agent] usage-write-failed", { code: error.code });
+      } catch { console.error("[contractor-agent] usage-write-failed"); }
+    }
+    console.log("[contractor-agent] completed", { durationMs: Date.now() - startedAt, inputTokens, outputTokens });
   }
 }
