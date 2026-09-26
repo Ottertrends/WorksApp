@@ -129,7 +129,7 @@ export async function processContractorMessage(
     const admin = createSupabaseAdminClient();
     const [{ data: memRow }, { data: profRow, error: profileError }, { data: monthRows, error: usageError }] = await Promise.all([
       admin.from("agent_memory").select("memory_text, updated_at").eq("user_id", userId).maybeSingle(),
-      admin.from("profiles").select("zip_code, city, state, stripe_connect_account_id, stripe_connect_charges_enabled, subscription_plan, subscription_status, subscription_seats").eq("id", workspaceUserId).maybeSingle(),
+      admin.from("profiles").select("zip_code, stripe_connect_account_id, stripe_connect_charges_enabled, subscription_plan, subscription_status, subscription_seats").eq("id", workspaceUserId).maybeSingle(),
       admin.from("api_usage").select("openai_input_tokens, openai_output_tokens, mini_input_tokens, mini_output_tokens, web_messages").eq("user_id", userId).gte("date", `${new Date().toISOString().slice(0, 7)}-01`),
     ]);
 
@@ -139,13 +139,13 @@ export async function processContractorMessage(
 
     const systemWithMemory = buildSystemPrompt({
       zip: profRow?.zip_code,
-      city: profRow?.city,
-      state: profRow?.state,
       stripeConnected: !!(profRow?.stripe_connect_account_id && profRow?.stripe_connect_charges_enabled),
     }) + memoryBlock;
 
     const MONTHLY_TOKEN_CAP = 6_500_000;
-    if (usageError || profileError || !profRow) throw new Error("Unable to verify agent usage allowance");
+    if (profileError) throw new Error(`Unable to load agent profile: ${profileError.code}`);
+    if (usageError) throw new Error(`Unable to verify agent usage allowance: ${usageError.code}`);
+    if (!profRow) throw new Error("Agent workspace profile not found");
     const messageLimit = maxMonthlyMessages(profRow);
     const monthlyMessages = (monthRows ?? []).reduce((total, row) => total + (row.web_messages ?? 0), 0);
     if (!isPremium(profRow) && monthlyMessages >= messageLimit) return {

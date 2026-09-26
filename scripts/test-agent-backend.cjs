@@ -51,9 +51,10 @@ test('unsigned webhook cannot invoke agent',async()=>{const f=webhookFixture();a
 test('duplicate media callback is rejected before download or agent work',()=>signed(async()=>{const f=webhookFixture({duplicate:true});assert.equal((await f.route.POST(request('message.received',{media:[{url:'https://must-not-fetch.example/image.jpg'}]}))).status,200);for(const job of f.jobs)await job();assert.equal(f.agentCalls,0);assert.equal(f.sends,0);assert.ok(f.rows.some(r=>r.result==='duplicate-message'));}));
 test('accepted reply stores provider ID; failed send creates no outbound success row',()=>signed(async()=>{for(const fail of [false,true]){const f=webhookFixture({sendFailure:fail});await f.route.POST(request());for(const job of f.jobs)await job();assert.equal(f.agentCalls,1);const sent=f.rows.filter(r=>r.direction==='outbound');assert.equal(sent.length,fail?0:1);if(!fail)assert.equal(sent[0].whatsapp_message_id,'outbound-provider-id');else assert.ok(f.rows.some(r=>r.result==='reply-failed'));}}));
 test('delivery log persistence failure returns retryable 503',()=>signed(async()=>{const f=webhookFixture({logFailure:true});assert.equal((await f.route.POST(request('message.finalized',{to:[{status:'delivered'}]}))).status,503);assert.equal(f.agentCalls,0);}));
-function agentFixture({miniTokens=0,usageError=false,messages=0}={}){
+function agentFixture({miniTokens=0,usageError=false,messages=0,profileError=false}={}){
  let requests=0;const writes=[];
- const db={from(table){const value=table==='profiles'?{subscription_plan:'free'}:table==='api_usage'?[{mini_input_tokens:miniTokens,web_messages:messages}]:null;const q={select(){return q;},eq(){return q;},gte(){return q;},maybeSingle(){return Promise.resolve({data:value,error:null});},then(a,b){return Promise.resolve({data:value,error:usageError&&table==='api_usage'?{code:'offline'}:null}).then(a,b);}};return q;},async rpc(name,args){await new Promise(resolve=>setTimeout(resolve,5));writes.push({name,args});return {error:null};}};
+ const profileColumns=new Set(['zip_code','stripe_connect_account_id','stripe_connect_charges_enabled','subscription_plan','subscription_status','subscription_seats']);
+ const db={from(table){const value=table==='profiles'?{subscription_plan:'free',zip_code:'78701'}:table==='api_usage'?[{mini_input_tokens:miniTokens,web_messages:messages}]:null;let error=table==='profiles'&&profileError?{code:'offline'}:null;const q={select(columns){if(table==='profiles'&&columns.split(',').some(column=>!profileColumns.has(column.trim())))error={code:'42703'};return q;},eq(){return q;},gte(){return q;},maybeSingle(){return Promise.resolve({data:error?null:value,error});},then(a,b){return Promise.resolve({data:value,error:usageError&&table==='api_usage'?{code:'offline'}:error}).then(a,b);}};return q;},async rpc(name,args){await new Promise(resolve=>setTimeout(resolve,5));writes.push({name,args});return {error:null};}};
  class FakeOpenAI{constructor(){this.chat={completions:{create:async()=>{requests++;return {choices:[{message:{content:'Hello'}}],usage:{prompt_tokens:100,completion_tokens:20}};}}};}}
  const fn=load('src/lib/agent/contractor-agent.ts',{
    openai:FakeOpenAI,'@/lib/billing/access':{isPremium:()=>false,maxMonthlyMessages:()=>50},
@@ -67,3 +68,16 @@ function agentFixture({miniTokens=0,usageError=false,messages=0}={}){
 test('mini tokens and shared message allowance block model spend at limit',async()=>{const old=process.env.OPENAI_API_KEY;process.env.OPENAI_API_KEY='test';try{for(const config of [{miniTokens:6500000},{messages:50},{usageError:true}]){const f=agentFixture(config);const result=await f.fn('actor','Hello',[]);assert.equal(f.requests,0);assert.equal(f.writes.length,0);assert.ok(result.limitReached||result.error);}}finally{if(old===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=old;}});
 test('agent awaits one accurate token and message usage write',async()=>{const old=process.env.OPENAI_API_KEY;process.env.OPENAI_API_KEY='test';try{const f=agentFixture();assert.equal((await f.fn('actor','Hello',[])).reply,'Hello');assert.equal(f.requests,1);assert.equal(f.writes.length,1);assert.equal(f.writes[0].args.p_mini_input,100);assert.equal(f.writes[0].args.p_mini_output,20);assert.equal(f.writes[0].args.p_web_messages,1);}finally{if(old===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=old;}});
 test('routing makes no classifier request and keeps complex work on capable model',()=>{const {routeToModel}=load('src/lib/agent/model-router.ts',{'./model':{DEFAULT_OPENAI_MODEL:'large',MINI_MODEL:'mini'}});assert.equal(routeToModel('hello').model,'mini');assert.equal(routeToModel('create a proposal').model,'large');assert.equal(routeToModel('please help with this unusual task').method,'fallback');});
+
+test('production profile schema without city/state admits requests; real profile failures stay closed',async()=>{
+ const old=process.env.OPENAI_API_KEY;process.env.OPENAI_API_KEY='test';
+ try {
+  const healthy=agentFixture();
+  assert.deepEqual(await healthy.fn('actor','Hello',[]),{reply:'Hello'});
+  assert.equal(healthy.requests,1);
+  const failed=agentFixture({profileError:true});
+  assert.match((await failed.fn('actor','Hello',[])).error,/Unable to load agent profile: offline/);
+  assert.equal(failed.requests,0);
+  assert.equal(failed.writes.length,0);
+ }finally{if(old===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=old;}
+});
